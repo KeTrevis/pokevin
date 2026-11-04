@@ -16,12 +16,12 @@
   }
 
   /** @param {import("./types/domain").Save} save */
-  function validateSave(save) {
+  function validateSave(save, allowSpecial = false) {
     if (!save || save.v !== 2 || !Array.isArray(save.mons) || !Array.isArray(save.team) ||
         !save.adv || !Number.isInteger(save.adv.chapter) || !STORY.CHAPTERS[save.adv.chapter]) {
       throw new Error('Sauvegarde absente ou incompatible. Lance une partie avant de la lire.');
     }
-    if (save.adv.event || save.adv.zone || save.adv.tower) {
+    if (!allowSpecial && (save.adv.event || save.adv.zone || save.adv.tower)) {
       throw new Error("Reviens à l’aventure normale pour lire ton équipe en route.");
     }
     if (save.adv.layout !== 6) {
@@ -62,9 +62,9 @@
       .map(mon => ({ uid: mon.uid, group: Game.beingOf(mon) })));
   }
 
-  /** @param {import("./types/domain").Save} save @param {number} [now] @param {string[]} [teamIds] @returns {import("./types/domain").PreparedTeam} */
-  function prepareTeam(save, now = Date.now(), teamIds) {
-    validateSave(save);
+  /** @param {import("./types/domain").Save} save @param {number} [now] @param {string[]} [teamIds] @param {boolean} [allowSpecial] @returns {import("./types/domain").PreparedTeam} */
+  function prepareTeam(save, now = Date.now(), teamIds, allowSpecial = false) {
+    validateSave(save, allowSpecial);
     if (!Number.isFinite(now)) throw new Error('Date de simulation invalide.');
     engine.setSnapshotTime(now);
     // Same regional flags restored by Game.load in the real game.
@@ -100,7 +100,8 @@
     let teamSummary = [];
     Game.sandbox(state, () => {
       for (const mon of mons) {
-        const reason = Game.can(mon);
+        const reason = state.adv.zone ? Game.can(mon, 'zone', state.adv.zone.id) :
+          state.adv.event ? null : Game.can(mon);
         if (reason) throw new Error(reason);
       }
       if (new Set(mons.map(mon => Game.beingOf(mon))).size !== mons.length) {
@@ -109,7 +110,7 @@
       Game.healTeam();
       teamSummary = Game.teamMons().map(mon => ({
         uid: mon.uid, id: mon.id, name: Game.DEX[mon.id].name,
-        level: mon.level, shiny: !!mon.shiny, rank: Game.rankOf(mon),
+        level: Game.lvl(mon), shiny: !!mon.shiny, rank: Game.rankOf(mon),
         hp: Game.maxHp(mon),
       }));
     });
@@ -206,5 +207,5 @@
     return [Math.max(0, center - margin), Math.min(1, center + margin)];
   }
 
-  globalThis.GymSimulator = { restoreRegions, champions, available, prepareTeam, prepare, fight, applyEvolutions, interval };
+  globalThis.GymSimulator = { validateSave, validMon, restoreRegions, champions, available, prepareTeam, prepare, fight, applyEvolutions, interval };
 })();

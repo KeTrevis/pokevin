@@ -42,19 +42,19 @@ async function original() {
   // Independent reference: original preamble + original core, with all module setup intact.
   vm.runInContext(source.slice(0, end) + ';globalThis.Reference=t;})();', context);
   await context.Reference.Clock.ready();
-  const proposeStart = source.indexOf('function Rn(L){const le=L&&m.getMon(L.uid)');
-  const proposeEnd = source.indexOf('function zn(L,le)', proposeStart);
-  const evolveStart = source.indexOf('async function jn(L){const le=L.demo?');
+  const proposeStart = source.indexOf('function qn(L){const le=L&&m.getMon(L.uid)');
+  const proposeEnd = source.indexOf('function Bn(L,le)', proposeStart);
+  const evolveStart = source.indexOf('async function _n(L){const le=L.demo?');
   const evolveEnd = source.indexOf('function tt(L,', evolveStart);
   assert.ok(proposeStart >= 0 && proposeEnd > proposeStart && evolveStart >= 0 && evolveEnd > evolveStart);
   // Exercise the real UI's evolution handlers too. Only graphics/toasts are stubbed.
   vm.runInContext(`Reference.App={refresh(){}};Reference.UI={proposeEvolution:(function(){
-    const m=Reference.Game,t=Reference,gn=new Set(),e=Reference._t,ie=String;
-    const Pn=()=>{},mt=()=>{},at=()=>'';
+    const m=Reference.Game,t=Reference,Xa=new Set(),e=Reference._t,ie=String;
+    const Rn=()=>{},mt=()=>{},nt=()=>'';
     const Ta=()=>{throw new Error('A player must choose this evolution');};
     ${source.slice(proposeStart, proposeEnd)}
     ${source.slice(evolveStart, evolveEnd)}
-    return Rn;
+    return qn;
   })()};`, context);
   return context;
 }

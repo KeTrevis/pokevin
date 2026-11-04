@@ -30,6 +30,8 @@
     "ui/**/*.jsx",
     "ui/version-warning.js",
     "types/**/*.d.ts",
-    "tests/typecheck-contracts.js"
+    "tests/typecheck-contracts.js",
+    "encounter-simulator.js",
+    "encounter-content.js"
   ]
 }

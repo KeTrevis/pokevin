@@ -93,3 +93,10 @@ npm run build:extension
 
 Le manifeste charge le bundle généré avant `content.js`. Il faut le reconstruire
 après une modification des fichiers JSX, puis recharger l’extension et le jeu.
+
+`EncounterCoach` regroupe le sélecteur de rencontre, son badge et la proposition
+d’équipe. Les duels secondaires d’un chapitre avec arène sont placés dans un
+`details` « Autres rencontres ». `encounter-content.js` pilote ce composant via
+`mountEncounter(container, props)` / `updateEncounter(element, props)` et retire
+l’ancienne racine lors d’un changement d’écran, même si le jeu conserve cet
+écran masqué dans le DOM.

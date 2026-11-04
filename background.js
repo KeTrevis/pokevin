@@ -1,6 +1,6 @@
 // @ts-check
 // Chromium loads these in its worker; Firefox loads the manifest's ordered scripts.
-if (typeof importScripts === 'function') importScripts('engine/core.js', 'simulator.js', 'optimizer.js', 'chapter-xp.js');
+if (typeof importScripts === 'function') importScripts('engine/core.js', 'simulator.js', 'encounter-simulator.js', 'optimizer.js', 'chapter-xp.js');
 
 const versionReady = fetch(chrome.runtime.getURL('engine/version.json')).then(response => response.json());
 const RUNS = 100;
@@ -19,7 +19,7 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
 function* estimate(prepared) {
   let wins = 0;
   for (let done = 1; done <= RUNS; done++) {
-    wins += +GymSimulator.fight(prepared).won;
+    wins += +(prepared.encounterId ? EncounterSimulator : GymSimulator).fight(prepared).won;
     yield { done, runs: RUNS };
   }
   return { wins, runs: RUNS, probability: wins / RUNS,
@@ -28,7 +28,7 @@ function* estimate(prepared) {
 }
 
 chrome.runtime.onConnect.addListener(port => {
-  if (!['arena-coach', 'arena-optimizer', 'chapter-xp'].includes(port.name)) return;
+  if (!['arena-coach', 'arena-optimizer', 'chapter-xp', 'encounter-coach'].includes(port.name)) return;
   /** @typedef {{ requestId: number, iterator?: Generator<import("./types/domain").Progress | import("./types/domain").OptimizationProgress, import("./types/domain").XPResult | import("./types/domain").GymResult | import("./types/domain").OptimizationResult | void, unknown> }} Job */
   /** @type {Job | null} */
   let job = null;
@@ -38,7 +38,7 @@ chrome.runtime.onConnect.addListener(port => {
   /** @param {object} message */
   const send = message => { try { port.postMessage(message); } catch { stop(); } };
   versionReady.then(version => send({ type: 'ready', bundle: version.bundle,
-    chapters: PokeCatchEngine.STORY.CHAPTERS.flatMap((chapter, index) =>
+    encounters: EncounterSimulator.catalog(), chapters: PokeCatchEngine.STORY.CHAPTERS.flatMap((chapter, index) =>
       !chapter.league && chapter.steps.some(step => step.kind === 'gym' && step.badge) ? [index] : []) }));
   port.onDisconnect.addListener(stop);
   port.onMessage.addListener(/** @param {import("./types/domain").ControlRequest} message */ async message => {
@@ -52,15 +52,20 @@ chrome.runtime.onConnect.addListener(port => {
     try {
       await versionReady;
       if (job !== current) return;
-      if (!Number.isInteger(message.chapter)) throw new Error('Chapitre invalide.');
+      const special = message.type === 'encounter' || message.type === 'encounter-optimize';
+      if (!special && (!('chapter' in message) || !Number.isInteger(message.chapter))) throw new Error('Chapitre invalide.');
       const xp = message.type === 'xp';
-      const champion = xp ? null : GymSimulator.champions(message.save).find(item => item.chapter === message.chapter);
-      if (!xp && !champion) {
+      const champion = xp || special ? null : GymSimulator.champions(message.save).find(item => item.chapter === ('chapter' in message ? message.chapter : -1));
+      if (!xp && !special && !champion) {
         send({ type: 'unavailable', requestId: current.requestId });
         stop(); return;
       }
-      const optimizing = message.type === 'optimize';
-      if (xp) current.iterator = ChapterXP.estimate(message.save, message.chapter);
+      const optimizing = message.type === 'optimize' || message.type === 'encounter-optimize';
+      if (special) {
+        if (optimizing && !/^(zone|event|story):/.test(message.encounterId)) throw new Error('Cette rencontre utilise une équipe imposée par le jeu.');
+        current.iterator = optimizing ? TeamOptimizer.search(message.save, message.encounterId) :
+          estimate(EncounterSimulator.prepare(message.save, message.encounterId));
+      } else if (xp) current.iterator = ChapterXP.estimate(message.save, message.chapter);
       else if (champion) current.iterator = optimizing ? TeamOptimizer.search(message.save, champion.id) :
         estimate(GymSimulator.prepare(message.save, champion.id));
       const iterator = current.iterator;

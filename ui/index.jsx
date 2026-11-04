@@ -4,6 +4,7 @@ import { flushSync } from 'react-dom';
 import { Badge } from './components/Badge.jsx';
 import { TeamAdvisor } from './components/TeamAdvisor.jsx';
 import { ChapterPreview } from './components/ChapterPreview.jsx';
+import { EncounterCoach } from './components/EncounterCoach.jsx';
 import { VERSION_WARNING } from './version-warning.js';
 import './friend-dex.jsx';
 
@@ -78,4 +79,5 @@ function disposeDetached(nodes) {
 }
 
 globalThis.PokeCatchUI = Object.freeze({ versionWarning: VERSION_WARNING, mountBadge, updateBadge, mountAdvisor, updateAdvisor: updateBadge,
-  mountPreview, updatePreview: updateBadge, disposeDetached });
+  mountPreview, updatePreview: updateBadge, disposeDetached,
+  mountEncounter: /** @param {Element} container @param {import('../types/domain').EncounterCoachProps} props */ (container, props) => mountComponent(container, EncounterCoach, props), updateEncounter: updateBadge });

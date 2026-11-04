@@ -124,5 +124,79 @@
       query(`#map-root [data-ch="${chapter}"]`)?.click();
     }
   }
-  globalThis.PokeCatchTeams = { apply };
+  /** @param {import('./types/domain').TeamMon[]} proposal @param {string} encounterId */
+  async function applyEncounter(proposal, encounterId) {
+    const [kind, id] = encounterId.split(':');
+    if (!['zone', 'event'].includes(kind) || !/^\d+$/.test(id)) throw new Error('Rencontre invalide.');
+    if (query('#evt-pick.open, #modal-root.open')) throw new Error('Ferme la fenêtre ouverte avant d’appliquer cette équipe.');
+    const before = readSave(), ids = proposal.map(mon => mon.uid);
+    if (!ids.length || ids.length > 6 || new Set(ids).size !== ids.length || proposal.some(mon =>
+      !before.mons.some(owned => owned.uid === mon.uid && owned.id === mon.id && !!owned.shiny === mon.shiny))) {
+      throw new Error('Un Pokémon proposé a changé. Relance la recherche.');
+    }
+    const key = kind === 'zone' ? `zone:${id}` : id;
+    const original = [...(before.eventTeams[key] || [])];
+    const button = query(kind === 'zone' ? `[data-lz-team="${id}"]` : `[data-evt-id="${id}"] [data-evt-edit]`);
+    if (!button) throw new Error('Commandes de cette équipe introuvables.');
+    button.click(); await pause();
+    const input = /** @type {HTMLInputElement | null} */ (query('#evt-search'));
+    const grid = query('#evt-pc');
+    if (!input || !grid || !query('#evt-pick.open')) {
+      query('#evt-pick [data-evt-close]')?.click();
+      throw new Error('Sélecteur d’équipe introuvable.');
+    }
+    const names = new Map(proposal.map(mon => [mon.uid, mon.name]));
+    for (const uid of original) {
+      const slot = query(`#evt-team [data-uid="${CSS.escape(uid)}"]`);
+      names.set(uid, slot?.getAttribute('title') || slot?.querySelector('.name')?.textContent?.trim() || '');
+    }
+    /** @param {HTMLElement} element */
+    const tap = async element => {
+      const rect = element.getBoundingClientRect();
+      const options = { bubbles: true, cancelable: true, pointerId: 731, pointerType: 'mouse',
+        button: 0, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
+      element.dispatchEvent(new PointerEvent('pointerdown', { ...options, buttons: 1 }));
+      document.dispatchEvent(new PointerEvent('pointerup', { ...options, buttons: 0 }));
+      await pause();
+    };
+    /** @param {string[]} teamIds */
+    const composeSpecial = async teamIds => {
+      for (const uid of [...(readSave().eventTeams[key] || [])]) {
+        const slot = query(`#evt-team [data-uid="${CSS.escape(uid)}"]`);
+        if (!slot) throw new Error('Un emplacement est introuvable.');
+        await tap(slot);
+      }
+      for (const uid of teamIds) {
+        const mon = readSave().mons.find(mon => mon.uid === uid);
+        if (!mon) throw new Error('Un Pokémon n’est plus disponible.');
+        input.value = names.get(uid) || '';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        grid.scrollTop = 0; await pause();
+        let cell;
+        for (let top = 0; top <= grid.scrollHeight; top += Math.max(100, grid.clientHeight / 2)) {
+          grid.scrollTop = top; await pause();
+          cell = query(`#evt-pc [data-uid="${CSS.escape(uid)}"]`);
+          if (cell) break;
+        }
+        if (!cell) throw new Error('Un Pokémon proposé n’est pas disponible dans ce sélecteur.');
+        await tap(cell);
+      }
+      if (!same(readSave().eventTeams[key], teamIds)) throw new Error('Le jeu a refusé cette composition.');
+    };
+    /** @param {Event} event */
+    const block = event => { if (event.isTrusted) { event.preventDefault(); event.stopImmediatePropagation(); } };
+    document.addEventListener('pointerdown', block, true);
+    document.addEventListener('keydown', block, true);
+    try { await composeSpecial(ids); }
+    catch (error) {
+      try { await composeSpecial(original); }
+      catch { throw new Error('Application interrompue. Vérifie l’équipe de cette rencontre.'); }
+      throw error;
+    } finally {
+      document.removeEventListener('pointerdown', block, true);
+      document.removeEventListener('keydown', block, true);
+      query('#evt-pick [data-evt-close]')?.click();
+    }
+  }
+  globalThis.PokeCatchTeams = { apply, applyEncounter };
 })();

@@ -178,9 +178,56 @@ part soignée. Un rafraîchissement visuel de la fiche conserve les résultats d
 cette visite ; un changement de chapitre ou une fermeture suivie d’une réouverture
 lance un nouveau calcul. Revenir à l’onglet du navigateur ne relance pas le calcul.
 Un retour via Précédent/Suivant après avoir quitté la page constitue une nouvelle
-visite. Les chapitres sans champion d’arène n’affichent pas de pourcentage.
-Les modes événement, raid, zone légendaire et Tour ne sont pas pris en charge :
-revenir à l’aventure normale.
+visite. Les chapitres sans champion d’arène peuvent afficher les duels des rencontres fixes et des dresseurs nommés décrits ci-dessous.
+
+## Rencontres spéciales
+
+Le moteur embarqué vient du bundle officiel `app.cf8c0470ea.js` (build `c44d69d5e4`),
+récupéré le 4 novembre 2026. Une différence de version reste un simple avertissement.
+
+- **Zones légendaires** : dans Progression, ouvrir la fiche du légendaire, par exemple
+  Électhor à la Centrale. Le résultat utilise l’équipe dédiée à cette zone, ou l’équipe
+  d’aventure si elle est vide, soignée et plafonnée au niveau du boss. Les bonus de PV,
+  la rage, les ripostes, la météo et les formes hebdomadaires viennent du moteur natif.
+- **Événements** : la fiche d’une chasse ouverte utilise son équipe d’événement et
+  respecte la limite de fuite du légendaire. Les événements désactivés ou terminés
+  restent indisponibles pour une raison réelle du jeu.
+- **Rencontres fixes et dresseurs nommés** : le sélecteur Rencontre (sous Autres rencontres si le chapitre a aussi une arène)
+  permet d’estimer chaque duel, dont Ronflex, le fantôme d’Ossatueur et les Kimono.
+- **Ligue** : choisir un adversaire individuel ou Ligue entière. Le circuit comprend
+  les combats intermédiaires et les soins natifs ; sa première défaite compte comme un échec.
+- **Raids** : après avoir rejoint un raid, revenir à sa fiche dans Raids. Le duel du boss
+  utilise les Pokémon du joueur et les alliés enregistrés avec leurs véritables statistiques,
+  tous soignés. Avant de rejoindre le raid, les statistiques des amis ne sont pas entièrement
+  présentes dans la sauvegarde : aucun allié n’est inventé.
+- **Tour** : la fiche Tour de Combat estime le prochain étage avec les Pokémon encore
+  disponibles dans la run, leurs PV et statuts conservés. Sans run, elle estime le premier
+  étage d’une nouvelle run. Il ne s’agit pas d’une estimation de l’étage maximal.
+
+Hors circuit de Ligue, ces résultats mesurent un **duel direct**, sans le trajet précédent.
+Une capture ratée après le K.O. du boss reste une victoire au combat. Aucun pourcentage
+n’est proposé pour le bouclier du boss mondial : son état et son issue dépendent du serveur.
+
+La recherche d’équipe est aussi disponible pour les zones, événements et duels du chapitre.
+Appliquer une proposition de zone ou d’événement utilise le sélecteur natif de cette équipe,
+avec restauration de la composition précédente en cas d’échec. L’équipe d’aventure reste
+séparée. Les simulations ne modifient pas la sauvegarde ; seule cette action explicite
+change la composition dédiée. Les raids, la Tour et le circuit complet de Ligue affichent
+l’estimation sans proposer de réorganiser leurs équipes.
+
+Les résultats sont conservés pendant la visite de la fiche. Changer de rencontre,
+fermer puis rouvrir la fiche, ou appliquer une proposition lance une nouvelle estimation.
+
+```sh
+GAME_BUNDLE=/chemin/app.cf8c0470ea.js node --test tests/simulator.test.cjs tests/optimizer.test.cjs tests/chapter-xp.test.cjs tests/encounters.test.cjs
+PLAYWRIGHT_MODULE=/chemin/node_modules/playwright GAME_DIR=/chemin/game node tests/encounters.browser.cjs
+```
+
+Le contrôle navigateur charge l’extension et le vrai jeu dans un profil temporaire,
+vérifie Électhor, l’optimisation et l’application native de son équipe, les rencontres
+fixes, la Ligue, les thèmes, le petit écran et l’avertissement de version. Les captures
+1920 × 1080 sont enregistrées dans `artifacts/electhor-dark.png`, `artifacts/electhor-light.png`
+et `artifacts/encounter-ronflex.png`. `KEEP_OPEN=1` conserve le navigateur et le serveur local.
 
 ## Proposition d’équipe
 
@@ -231,7 +278,7 @@ que le champion change. Il n’y a ni stockage persistant ni script télécharg�
 Depuis la racine du dépôt, avec Python 3 et Node 18 ou ultérieur :
 
 ```powershell
-python tools/build_extension_engine.py /chemin/app.5f011bb067.js --build b095b65025
+python tools/build_extension_engine.py /chemin/app.cf8c0470ea.js --build c44d69d5e4
 node --test tests/simulator.test.cjs tests/optimizer.test.cjs
 node tests/firefox.test.cjs
 ```
@@ -265,8 +312,9 @@ développement uniquement.
 Les versions de React et d’esbuild sont verrouillées par `package-lock.json`.
 Node n’est nécessaire que pour développer ou reconstruire l’extension.
 
-Le générateur recopie deux tranches **sans réécriture** du bundle du jeu :
-données puis règles d’environnement, Pokémon, progression et aventure. Seuls
+Le générateur recopie trois tranches **sans réécriture** du bundle du jeu :
+données, règles d’environnement/Pokémon/progression/aventure, puis modules
+événements/raids/Tour/zones légendaires/itinérants. Seuls
 l’environnement isolé et un export interne sont ajoutés autour. La version et
 l’empreinte SHA-256 du bundle d’origine sont dans `engine/version.json`.
 

@@ -35,6 +35,7 @@ async function main() {
       const filename = path.resolve(gameRoot, '.' + new URL(req.url, 'http://localhost').pathname);
       const resolved = filename === gameRoot ? path.join(gameRoot, 'index.html') : filename;
       if (!resolved.startsWith(gameRoot + path.sep) || !fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) {
+        if (req.url.startsWith('/assets/')) { res.writeHead(302, { Location: 'https://pokecatch-online.pages.dev' + req.url }); res.end(); return; }
         res.statusCode = 404; res.end(); return;
       }
       const mime = { '.js': 'text/javascript', '.html': 'text/html', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp' };
@@ -50,7 +51,7 @@ async function main() {
     const extension = ROOT;
     context = await chromium.launchPersistentContext(profile, {
       executablePath: process.env.BROWSER_EXECUTABLE || undefined,
-      headless: true, viewport: { width: 1773, height: 1040 },
+      headless: true, viewport: { width: 1920, height: 1080 },
       ignoreDefaultArgs: ['--disable-extensions', '--disable-back-forward-cache'],
       args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`,
         '--enable-unsafe-extension-debugging'],
@@ -143,6 +144,7 @@ async function main() {
     await game.evaluate(() => { renderChapter(1); });
     await game.waitForTimeout(250);
     await game.evaluate(() => { renderChapter(5); });
+    await game.waitForFunction(() => document.querySelector('#pc-arena-chance')?.dataset.champion === 'Morgane');
     await ready();
     assert.equal(await badge.getAttribute('data-champion'), 'Morgane');
     const result = await badge.innerText();
@@ -174,7 +176,10 @@ async function main() {
     await applyWarning.press('Escape');
     await game.evaluate(expected => { document.querySelector('script[src]').src = '/fixture/bundle/' + expected; }, bundle);
     await badge.focus();
-    await game.waitForFunction(() => [...document.querySelectorAll('[role="tooltip"]')].every(el => !el.textContent.includes('Version du jeu différente')));
+    await game.waitForFunction(() => {
+      const badge = document.querySelector('#pc-arena-chance');
+      return !document.getElementById(badge.getAttribute('aria-describedby'))?.textContent.includes('Version du jeu différente');
+    });
     await badge.press('Escape');
     await ready();
     await game.evaluate(() => renderChapter(8));
@@ -233,7 +238,7 @@ async function main() {
     });
     assert.deepEqual(nativeStyle.badge, nativeStyle.native, 'Badge should use the same typography, padding and radius as native chips');
     assert.equal(await badge.locator('small').count(), 0, 'Badge should stay on one line');
-    const tooltip = game.locator('.pc-tooltip:not(.pc-trainer-tooltip)');
+    const tooltip = game.locator(`[id="${await badge.getAttribute('aria-describedby')}"]`);
     await badge.hover();
     await tooltip.waitFor({ state: 'visible' });
     assert.equal(await tooltip.innerText(), 'Chance of defeating the Gym Leader, calculated with the current team at 100% HP.');
@@ -258,15 +263,16 @@ async function main() {
     await game.evaluate(() => { document.documentElement.dataset.theme = 'light'; });
     await game.waitForFunction(dark => getComputedStyle(document.querySelector('#pc-arena-chance')).backgroundColor !== dark, darkBackground);
     await ready();
-    await game.screenshot({ path: path.join(ROOT, 'coach-inline-light-preview.png'), fullPage: true });
+    await game.screenshot({ path: path.join(ROOT, 'coach-inline-light-preview.png') });
     await game.evaluate(() => { delete document.documentElement.dataset.theme; });
     await ready();
-    await game.screenshot({ path: path.join(ROOT, 'coach-inline-preview.png'), fullPage: true });
+    await game.screenshot({ path: path.join(ROOT, 'coach-inline-preview.png') });
     await game.getByRole('button', { name: '✨ Proposer une équipe' }).click();
     await game.locator('#pc-team-advisor[data-status="result"]').waitFor({ timeout: 60000 });
     const resultText = await game.locator('#pc-team-advisor').innerText();
     assert.match(resultText, /Meilleure équipe trouvée/);
     assert.ok(await game.locator('.pc-advisor-team li').count() <= 6);
+    await game.waitForFunction(() => [...document.querySelectorAll('#pc-team-advisor .pc-advisor-team img')].every(image => image.complete && image.naturalWidth > 0));
     assert.equal(await game.locator('.pc-advisor-team img').evaluateAll(images => images.every(image => image.complete && image.naturalWidth > 0)), true);
     const proposed = await game.locator('.pc-advisor-team li').evaluateAll(items => items.map(item => item.dataset.uid));
     assert.ok(proposed.includes('pc-strong'), 'The recommendation should use the stronger PC Pokémon');
@@ -280,16 +286,19 @@ async function main() {
     assert.deepEqual(await game.locator('#team-slots > .slot.filled').evaluateAll(items => items.map(item => item.dataset.uid)), proposed, 'The live game state must match the save');
     await game.locator('#tabs [data-screen="map"]').click();
     await game.locator('#map-root [data-ch="5"]').click();
+    await game.getByRole('button', { name: '✨ Proposer une équipe', exact: true }).click();
     await game.locator('#pc-team-advisor[data-status="result"]').waitFor();
     console.log('Native apply passed: saved team, live state, proposed order, team preset and return to chapter.');
-    await game.screenshot({ path: path.join(ROOT, 'coach-team-preview.png'), fullPage: true });
+    await game.screenshot({ path: path.join(ROOT, 'coach-team-preview.png') });
     await game.evaluate(() => { document.documentElement.dataset.theme = 'light'; });
-    await game.screenshot({ path: path.join(ROOT, 'coach-team-light-preview.png'), fullPage: true });
+    await game.screenshot({ path: path.join(ROOT, 'coach-team-light-preview.png') });
     await game.evaluate(() => { delete document.documentElement.dataset.theme; });
+    const previousTooltipId = await badge.getAttribute('aria-describedby');
     await game.locator('#map-root [data-ch="1"]').click();
+    await game.waitForFunction(() => document.querySelector('#pc-arena-chance')?.dataset.champion === 'Ondine');
     await ready();
     assert.equal(await badge.getAttribute('data-champion'), 'Ondine');
-    assert.equal(await game.locator('.pc-tooltip:not(.pc-trainer-tooltip)').count(), 1, 'React must remove the previous panel’s tooltip');
+    assert.equal(await game.locator(`[id="${previousTooltipId}"]`).count(), 0, 'React must remove the previous panel’s tooltip');
     await game.setViewportSize({ width: 390, height: 844 });
     await game.locator('#map-root .pg-det-x').click();
     await game.locator('#map-root .pg-info.det-open').waitFor({ state: 'detached' });
@@ -299,8 +308,9 @@ async function main() {
     await game.getByRole('button', { name: '✨ Proposer une équipe' }).click();
     await game.locator('#pc-team-advisor[data-status="result"]').waitFor({ timeout: 60000 });
     assert.equal(await game.locator('#pc-team-advisor').evaluate(element => element.getBoundingClientRect().right <= innerWidth), true);
-    await game.screenshot({ path: path.join(ROOT, 'coach-team-mobile-preview.png'), fullPage: true });
-    await game.addScriptTag({ path: path.join(ROOT, 'extension/apply-team.js') });
+    await game.setViewportSize({ width: 1920, height: 1080 });
+    await game.screenshot({ path: path.join(ROOT, 'coach-team-after-mobile-preview.png') });
+    await game.addScriptTag({ path: path.join(ROOT, 'apply-team.js') });
     const nativeApply = await game.evaluate(async () => {
       const read = () => JSON.parse(localStorage.getItem('gachamon-save-v1'));
       const before = read();
@@ -333,7 +343,7 @@ async function main() {
     console.log('Original game integration passed: selected champion, native chips, navigation and mobile detail view.');
   } catch (error) {
     console.error('Browser page errors:', context ? await Promise.all(context.pages().map(page => page.evaluate(() => ({ url: location.href, overlays: [...document.querySelectorAll('.cu-veil, #modal-root.open, .title-fx')].map(el => el.textContent.slice(0, 500)) })).catch(() => null))) : []);
-    if (context?.pages().at(-1)) await context.pages().at(-1).screenshot({ path: path.join(ROOT, 'coach-test-error.png'), fullPage: true });
+    if (context?.pages().at(-1)) await context.pages().at(-1).screenshot({ path: path.join(ROOT, 'coach-test-error.png') });
     throw error;
   } finally {
     await context?.close();

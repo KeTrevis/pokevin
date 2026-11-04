@@ -3,7 +3,6 @@
 (() => {
   'use strict';
   const { Game, Adventure } = PokeCatchEngine;
-  const sim = GymSimulator;
   const SCREEN_RUNS = 12;
   const FINAL_RUNS = 100;
   /** @typedef {{ team: string[], wins: number, progress: number, survivors: number, actions: number, runs: number }} Score */
@@ -12,7 +11,9 @@
 
   /** @param {import("./types/domain").Save} save @param {string} championId @param {number} [now] @returns {Generator<import("./types/domain").OptimizationProgress, import("./types/domain").OptimizationResult, unknown>} */
   function* search(save, championId, now = Date.now()) {
-    const roster = sim.available(save);
+    const special = /^(zone|event|story):/.test(championId);
+    const sim = special ? EncounterSimulator : GymSimulator;
+    const roster = special ? EncounterSimulator.available(save, championId) : GymSimulator.available(save);
     if (!roster.length) throw new Error('Aucun Pokémon disponible dans ton équipe et ton PC.');
     const groups = new Map(roster.map(mon => [mon.uid, mon.group]));
     /** @param {string[]} team */
@@ -25,11 +26,12 @@
       }));
       return roster.map(mon => {
         const owned = Game.getMon(mon.uid);
-        const scores = enemies.map(enemy => Adventure.counterValue(owned, enemy, owned.level));
+        const scores = enemies.map(enemy => Adventure.counterValue(owned, enemy, Game.lvl(owned)));
         return { ...mon, scores, score: scores.reduce((sum, score) => sum + score, 0) / scores.length };
       });
     });
-    const current = [...(save.road?.length ? save.road : save.team)];
+    const current = special ? EncounterSimulator.team(save, championId) :
+      [...(save.road?.length ? save.road : save.team)];
     const pool = new Set(legal(current) ? current : []);
     /** @template {{ uid: string, group: string }} T @param {T[]} list @param {(mon: T) => number} score @param {number} count */
     const addBest = (list, score, count) => {

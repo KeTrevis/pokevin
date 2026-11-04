@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Poke’Catch — Coach d’arène",
-  "version": "0.4.5",
-  "description": "Estime les chances face à un champion et propose une équipe parmi tes Pokémon, avec le moteur du jeu isolé de ta partie.",
+  "version": "0.4.6",
+  "description": "Estime les chances de victoire des champions et rencontres spéciales, et propose une équipe avec le moteur du jeu isolé de ta partie.",
   "minimum_chrome_version": "121",
   "browser_specific_settings": {
     "gecko": {
@@ -13,11 +13,11 @@
   },
   "background": {
     "service_worker": "background.js",
-    "scripts": ["engine/core.js", "simulator.js", "optimizer.js", "chapter-xp.js", "background.js"]
+    "scripts": ["engine/core.js", "simulator.js", "encounter-simulator.js", "optimizer.js", "chapter-xp.js", "background.js"]
   },
   "content_scripts": [{
     "matches": ["http://localhost/*", "http://127.0.0.1/*", "https://pokecatch-online.netlify.app/*"],
-    "js": ["ui/chapter-data.js", "ui/react-ui.js", "apply-team.js", "content.js"],
+    "js": ["ui/chapter-data.js", "ui/react-ui.js", "apply-team.js", "content.js", "encounter-content.js"],
     "css": ["ui/badge.css", "ui/tooltip.css", "ui/advisor.css", "ui/chapter-preview.css", "ui/friend-dex.css"],
     "run_at": "document_idle"
   }],

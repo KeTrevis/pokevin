@@ -16,3 +16,10 @@
 .pc-advisor-team small { display: block; font-size: var(--fs-caption); color: var(--text-2); }
 .pc-advisor-error { color: var(--danger-text); font-size: var(--fs-caption); line-height: 1.5; }
 @media(max-width: 640px) { .pc-advisor-team { grid-template-columns: 1fr; } }
+.pc-encounter { margin: var(--s3) 0; }
+.pc-encounter-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--s2); margin-bottom: var(--s2); }
+.pc-encounter-heading > b { font-size: var(--fs-sm); }
+.pc-encounter-heading label { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s2); font-size: var(--fs-caption); color: var(--text-2); }
+.pc-encounter-heading select { max-width: 100%; min-width: 0; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: var(--s2); font: inherit; }
+
+.pc-encounter > summary { cursor: pointer; margin-bottom: var(--s2); font-size: var(--fs-sm); color: var(--text-2); }
