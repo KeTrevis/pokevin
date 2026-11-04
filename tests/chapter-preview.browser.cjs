@@ -102,7 +102,10 @@ async function main() {
     await page.evaluate(() => { renderChapter(0); document.querySelector('script[src]').src = '/bundle/other.js'; });
     await preview.waitFor();
     await preview.locator('summary').click();
-    assert.match(await preview.innerText(), /équipes peuvent avoir changé/);
+    await preview.locator('summary').focus();
+    await page.getByRole('tooltip').getByText('Version du jeu différente : les résultats peuvent être inexacts.').waitFor();
+    assert.doesNotMatch(await preview.innerText(), /Version du jeu différente/);
+    await preview.locator('summary').press('Escape');
     assert.equal(await page.evaluate(() => localStorage.getItem('gachamon-save-v1')), before);
     assert.deepEqual(errors, []);
     console.log('Fixture passed: hover, keyboard, scrollable roster, teams, redraw, chapter switching, locked/empty panels, version warning, no save writes.');

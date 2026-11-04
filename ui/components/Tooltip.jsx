@@ -1,16 +1,19 @@
+// @ts-check
 import { cloneElement, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-const contains = (element, target) => !!target?.nodeType && element?.contains(target);
+/** @param {Element | null} element @param {EventTarget | null} target */
+const contains = (element, target) => target instanceof Node && !!element?.contains(target);
 
 // A single DOM element is the trigger; the bubble uses the game's native classes.
+/** @param {{ content: import("react").ReactNode, children: import("react").ReactElement<import("react").HTMLAttributes<HTMLElement> & { ref?: import("react").Ref<HTMLElement> }>, interactive?: boolean, className?: string }} props */
 export function Tooltip({ content, children, interactive = false, className = '' }) {
   const id = useId();
-  const anchor = useRef(null);
-  const bubble = useRef(null);
-  const closeTimer = useRef(null);
+  const anchor = useRef(/** @type {HTMLElement | null} */ (null));
+  const bubble = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const closeTimer = useRef(/** @type {ReturnType<typeof setTimeout> | undefined} */ (undefined));
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState({ left: 0, top: 0, visibility: 'hidden' });
+  const [position, setPosition] = useState({ left: 0, top: 0, visibility: /** @type {'hidden' | 'visible'} */ ('hidden') });
   const leave = () => {
     clearTimeout(closeTimer.current);
     if (interactive) closeTimer.current = setTimeout(() => setOpen(false), 150);
@@ -19,17 +22,20 @@ export function Tooltip({ content, children, interactive = false, className = ''
   useLayoutEffect(() => () => clearTimeout(closeTimer.current), []);
 
   useLayoutEffect(() => {
-    if (!open) return;
-    const rect = anchor.current.getBoundingClientRect();
-    const width = bubble.current.offsetWidth;
-    const height = bubble.current.offsetHeight;
+    if (!open || !anchor.current || !bubble.current) return;
+    const anchorElement = anchor.current, bubbleElement = bubble.current;
+    const rect = anchorElement.getBoundingClientRect();
+    const width = bubbleElement.offsetWidth;
+    const height = bubbleElement.offsetHeight;
     const left = Math.max(12, Math.min(rect.left + rect.width / 2 - width / 2, innerWidth - width - 12));
     const top = rect.top - height - 8 >= 12 ? rect.top - height - 8 : rect.bottom + 8;
     setPosition({ left, top: Math.max(12, Math.min(top, innerHeight - height - 12)), visibility: 'visible' });
     const close = () => setOpen(false);
-    const scroll = event => { if (!interactive || !bubble.current.contains(event.target)) close(); };
+    /** @param {Event} event */
+    const scroll = event => { if (!interactive || !contains(bubbleElement, event.target)) close(); };
+    /** @param {PointerEvent} event */
     const outside = event => {
-      if (!anchor.current.contains(event.target) && !bubble.current.contains(event.target)) close();
+      if (!contains(anchorElement, event.target) && !contains(bubbleElement, event.target)) close();
     };
     window.addEventListener('scroll', scroll, true);
     window.addEventListener('resize', close);
@@ -80,12 +86,12 @@ export function Tooltip({ content, children, interactive = false, className = ''
       onPointerEnter={() => clearTimeout(closeTimer.current)}
       onPointerLeave={event => {
         if (interactive && !contains(anchor.current, event.relatedTarget) && document.activeElement !== anchor.current &&
-            !bubble.current.contains(document.activeElement)) leave();
+            !bubble.current?.contains(document.activeElement)) leave();
       }}
       onBlur={event => {
         if (interactive && !contains(bubble.current, event.relatedTarget) && !contains(anchor.current, event.relatedTarget)) setOpen(false);
       }}
-      onKeyDown={event => { if (event.key === 'Escape') { anchor.current.focus(); setOpen(false); } }}>
+      onKeyDown={event => { if (event.key === 'Escape') { anchor.current?.focus(); setOpen(false); } }}>
       {(!interactive || open) && content}
     </div>, document.body)}
   </>;

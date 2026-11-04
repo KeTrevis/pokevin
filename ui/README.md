@@ -53,7 +53,9 @@ il affiche les états `idle`, `searching`, `applying`, `result` ou `error`, sans
 moteur, le stockage ou les ports de l’extension. `advice.result` contient la
 proposition, `advice.teams` / `stage` la progression, `advice.applied` le succès
 de l’application et `advice.message` une éventuelle erreur.
-`versionMismatch` affiche un avertissement orange sans bloquer les actions.
+`versionMismatch` ajoute un avertissement au tooltip des boutons de recherche et
+d’application, sans bloquer les actions. Les badges de victoire et d’XP/h ainsi
+que le résumé des dresseurs suivent la même règle.
 
 Le pont `mountAdvisor(afterElement, props)` insère ce composant après un élément
 existant ; `updateAdvisor(element, props)` met ses propriétés à jour. Il partage

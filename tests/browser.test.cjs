@@ -132,21 +132,14 @@ async function main() {
     const count = await game.evaluate(() => window.calculationCompleted);
     const previousValue = await badge.locator('b').innerText();
     await game.evaluate(() => {
-      window.valueDuringUpdate = null;
-      new MutationObserver(() => {
-        const badge = document.querySelector('#pc-arena-chance');
-        if (badge?.getAttribute('aria-busy') === 'true') window.valueDuringUpdate = badge.querySelector('b').textContent;
-      }).observe(document.querySelector('#map-root'), { attributes: true, subtree: true });
-    });
-    await game.evaluate(() => {
       const state = JSON.parse(localStorage.getItem('gachamon-save-v1'));
       state.mons[0].level++;
       localStorage.setItem('gachamon-save-v1', JSON.stringify(state));
     });
-    await game.waitForFunction(before => window.calculationCompleted > before, count);
-    await ready();
-    assert.equal(await game.evaluate(() => window.loadingShown), false, 'Recalculation must never replace an existing percentage with loading text');
-    assert.equal(await game.evaluate(() => window.valueDuringUpdate), previousValue, 'Keep the previous percentage throughout the calculation');
+    await game.waitForTimeout(2400);
+    assert.equal(await game.evaluate(() => window.calculationCompleted), count, 'Level gains do not restart an estimate');
+    assert.equal(await badge.locator('b').innerText(), previousValue);
+    assert.equal(await game.evaluate(() => window.loadingShown), false);
     await game.evaluate(() => { renderChapter(1); });
     await game.waitForTimeout(250);
     await game.evaluate(() => { renderChapter(5); });
@@ -157,23 +150,32 @@ async function main() {
     await ready();
     assert.equal(await badge.innerText(), result, 'DOM redraw should reuse the cached result');
     await game.evaluate(() => { document.querySelector('script[src]').src = '/fixture/bundle/app.other.js'; });
-    await game.locator('.pc-advisor-warning').waitFor();
+    await badge.focus();
+    await game.waitForFunction(() => [...document.querySelectorAll('[role="tooltip"]')].some(el => el.textContent.includes('Version du jeu différente')));
+    await badge.press('Escape');
     const completedBeforeMismatch = await game.evaluate(() => window.calculationCompleted);
     await game.evaluate(() => {
       const state = JSON.parse(localStorage.getItem('gachamon-save-v1'));
       state.mons[0].level++;
       localStorage.setItem('gachamon-save-v1', JSON.stringify(state));
     });
-    await game.waitForFunction(before => window.calculationCompleted > before, completedBeforeMismatch);
+    await game.waitForTimeout(2400);
+    assert.equal(await game.evaluate(() => window.calculationCompleted), completedBeforeMismatch, 'Version mismatches and level gains do not restart the calculation');
     await ready();
     assert.match(await badge.innerText(), /%/);
-    assert.match(await advisor.locator('.pc-advisor-warning').innerText(), /résultats peuvent être inexacts/);
+    assert.equal(await advisor.locator('.pc-advisor-warning').count(), 0, 'Warning belongs in tooltips');
     await game.evaluate(() => renderChapter(0));
     await game.getByRole('button', { name: /Proposer une équipe/ }).click();
     await game.locator('#pc-team-advisor[data-status="result"]').waitFor({ timeout: 60000 });
-    assert.equal(await advisor.locator('.pc-advisor-warning').count(), 1, 'Version warning survives optimization');
+    const applyWarning = game.getByRole('button', { name: 'Appliquer cette équipe' });
+    assert.equal(await applyWarning.isEnabled(), true);
+    await applyWarning.focus();
+    await game.waitForFunction(() => [...document.querySelectorAll('[role="tooltip"]')].some(el => el.textContent.includes('Version du jeu différente')));
+    await applyWarning.press('Escape');
     await game.evaluate(expected => { document.querySelector('script[src]').src = '/fixture/bundle/' + expected; }, bundle);
-    await game.locator('.pc-advisor-warning').waitFor({ state: 'detached' });
+    await badge.focus();
+    await game.waitForFunction(() => [...document.querySelectorAll('[role="tooltip"]')].every(el => !el.textContent.includes('Version du jeu différente')));
+    await badge.press('Escape');
     await ready();
     await game.evaluate(() => renderChapter(8));
     await game.waitForTimeout(500);
@@ -181,7 +183,7 @@ async function main() {
     await game.evaluate(() => renderChapter(0));
     await ready();
     assert.deepEqual(errors, []);
-    console.log('Inline checks passed: 100 trials, passive badge, silent updates preserving the old result, healed team, cache, navigation races, version mismatch, no save writes.');
+    console.log('Inline checks passed: 100 trials, passive badge, one estimate per visit, stable result after level gains, healed team, redraw, navigation races, version mismatch, no save writes.');
 
     const completedBeforeNavigation = await game.evaluate(() => window.calculationCompleted);
     await game.evaluate(() => {

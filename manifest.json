@@ -13,7 +13,7 @@
   },
   "background": {
     "service_worker": "background.js",
-    "scripts": ["engine/core.js", "simulator.js", "optimizer.js", "background.js"]
+    "scripts": ["engine/core.js", "simulator.js", "optimizer.js", "chapter-xp.js", "background.js"]
   },
   "content_scripts": [{
     "matches": ["http://localhost/*", "http://127.0.0.1/*", "https://pokecatch-online.netlify.app/*"],

@@ -1,3 +1,4 @@
+// @ts-check
 /* Search only copied states. Never equip, move, train or evolve a real Pokémon. */
 (() => {
   'use strict';
@@ -5,12 +6,16 @@
   const sim = GymSimulator;
   const SCREEN_RUNS = 12;
   const FINAL_RUNS = 100;
+  /** @typedef {{ team: string[], wins: number, progress: number, survivors: number, actions: number, runs: number }} Score */
+  /** @param {Score} a @param {Score} b */
   const compare = (a, b) => a.wins - b.wins || a.progress - b.progress || a.survivors - b.survivors || b.actions - a.actions;
 
+  /** @param {import("./types/domain").Save} save @param {string} championId @param {number} [now] @returns {Generator<import("./types/domain").OptimizationProgress, import("./types/domain").OptimizationResult, unknown>} */
   function* search(save, championId, now = Date.now()) {
     const roster = sim.available(save);
     if (!roster.length) throw new Error('Aucun Pokémon disponible dans ton équipe et ton PC.');
     const groups = new Map(roster.map(mon => [mon.uid, mon.group]));
+    /** @param {string[]} team */
     const legal = team => team.length > 0 && team.length <= 6 && team.every(uid => groups.has(uid)) &&
       new Set(team.map(uid => groups.get(uid))).size === team.length;
     const seedTeam = sim.prepare(save, championId, now, [roster[0].uid]);
@@ -26,6 +31,7 @@
     });
     const current = [...(save.road?.length ? save.road : save.team)];
     const pool = new Set(legal(current) ? current : []);
+    /** @template {{ uid: string, group: string }} T @param {T[]} list @param {(mon: T) => number} score @param {number} count */
     const addBest = (list, score, count) => {
       const used = new Set();
       for (const mon of [...list].sort((a, b) => score(b) - score(a))) {
@@ -39,19 +45,21 @@
     for (let i = 0; i < ranked[0].scores.length; i++) addBest(ranked, mon => mon.scores[i], 3);
     const candidates = [...pool];
     const teamSize = Math.min(6, new Set(roster.map(mon => mon.group)).size);
+    /** @type {Map<string, Score | null>} */
     const memo = new Map();
     let tested = 0, trials = 0;
 
+    /** @param {string[]} team @param {number} runs @param {number} phase @returns {Generator<import("./types/domain").OptimizationProgress, Score | null, unknown>} */
     function* evaluate(team, runs, phase) {
       const key = JSON.stringify([phase, team]);
-      if (memo.has(key)) return memo.get(key);
+      if (memo.has(key)) return memo.get(key) ?? null;
       const prepared = sim.prepare(save, championId, now, team);
       const result = { team: [...team], wins: 0, progress: 0, survivors: 0, actions: 0, runs };
       for (let i = 0; i < runs; i++) {
         let fight;
         try { fight = sim.fight(prepared, null, ((now >>> 0) + Math.imul(i + 1, 2654435761) + phase * 1013904223) >>> 0); }
         catch (error) {
-          if (error.code !== 'EVOLUTION_CHOICE') throw error;
+          if (!(error instanceof Error) || !('code' in error) || error.code !== 'EVOLUTION_CHOICE') throw error;
           memo.set(key, null); return null;
         }
         result.wins += +fight.won; result.progress += fight.progress;
@@ -64,7 +72,9 @@
       return result;
     }
 
+    /** @type {Score[]} */
     const screened = [];
+    /** @param {string[]} team @returns {Generator<import("./types/domain").OptimizationProgress, Score | null, unknown>} */
     function* screen(team) {
       if (!legal(team)) return null;
       const result = yield* evaluate(team, SCREEN_RUNS, 0);
@@ -73,8 +83,10 @@
     }
 
     if (legal(current)) yield* screen(current);
+    /** @type {string[]} */
     let greedy = [];
     for (let slot = 0; slot < teamSize; slot++) {
+      /** @type {Score | undefined} */
       let best;
       for (const uid of candidates) {
         const result = yield* screen([...greedy, uid]);

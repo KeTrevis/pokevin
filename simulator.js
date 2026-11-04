@@ -1,17 +1,21 @@
+// @ts-check
 /* Adapter around the copied engine. This file never reads or writes game storage. */
 (() => {
   'use strict';
   const engine = globalThis.PokeCatchEngine;
   const { Game, Adventure, STORY, CONFIG } = engine;
+  /** @template T @param {T} value @returns {T} */
   const clone = value => structuredClone(value);
   const initiallyOpen = new Set(STORY.REGIONS.filter(region => region.open).map(region => region.key));
 
+  /** @param {import("./types/domain").Save} save */
   function restoreRegions(save) {
     for (const region of STORY.REGIONS) {
       if (region.key) region.open = initiallyOpen.has(region.key) || !!save.travel?.to?.includes(region.key);
     }
   }
 
+  /** @param {import("./types/domain").Save} save */
   function validateSave(save) {
     if (!save || save.v !== 2 || !Array.isArray(save.mons) || !Array.isArray(save.team) ||
         !save.adv || !Number.isInteger(save.adv.chapter) || !STORY.CHAPTERS[save.adv.chapter]) {
@@ -25,6 +29,7 @@
     }
   }
 
+  /** @param {import("./types/domain").Save} save @returns {import("./types/domain").Champion[]} */
   function champions(save) {
     validateSave(save);
     const region = STORY.regionOf(save.adv.chapter);
@@ -41,12 +46,14 @@
     });
   }
 
+  /** @param {import("./types/domain").Mon} mon */
   function validMon(mon) {
     return !!mon && !!Game.DEX[mon.id] && Number.isInteger(mon.level) && mon.level >= 1 &&
       mon.level <= CONFIG.MAX_LEVEL && Number.isFinite(mon.xp) && mon.xp >= 0 &&
       (mon.rank == null || (Number.isInteger(mon.rank) && mon.rank >= 0 && mon.rank <= CONFIG.UNDERGROUND.RANK_MAX));
   }
 
+  /** @param {import("./types/domain").Save} save */
   function available(save) {
     validateSave(save);
     restoreRegions(save);
@@ -55,17 +62,16 @@
       .map(mon => ({ uid: mon.uid, group: Game.beingOf(mon) })));
   }
 
-  function prepare(save, championId, now = Date.now(), teamIds) {
+  /** @param {import("./types/domain").Save} save @param {number} [now] @param {string[]} [teamIds] @returns {import("./types/domain").PreparedTeam} */
+  function prepareTeam(save, now = Date.now(), teamIds) {
     validateSave(save);
-    const champion = champions(save).find(item => item.id === championId);
-    if (!champion) throw new Error('Choisis un champion de ta région actuelle.');
     if (!Number.isFinite(now)) throw new Error('Date de simulation invalide.');
     engine.setSnapshotTime(now);
     // Same regional flags restored by Game.load in the real game.
     restoreRegions(save);
     const state = Object.assign(Game.freshState(), clone(save));
     state.stats = { ...Game.freshState().stats, ...state.stats };
-    state.buddy = { uid: null, ko: 0, ...state.buddy };
+    state.buddy = Object.assign({ uid: null, ko: 0 }, state.buddy);
     state.trainer ||= {};
     state.items ||= {};
     state.dex ||= {};
@@ -87,17 +93,11 @@
     });
     state.team = [...team];
     state.road = [...team];
-    const [chapterIndex, stepIndex] = champion.id.split(':').map(Number);
-    const gym = clone(STORY.CHAPTERS[chapterIndex].steps[stepIndex]);
-    Object.assign(state.adv, {
-      chapter: chapterIndex, nodes: [{ ...gym, ch: chapterIndex, type: 'gym', gym }],
-      node: 0, battle: null, pending: null, event: null, zone: null, tower: null,
-      capture: { on: false }, loops: [],
-    });
     state.adv.badges ||= [];
     state.adv.gifts ||= {};
     state.adv.kept ||= {};
-    let teamSummary;
+    /** @type {import("./types/domain").TeamMon[]} */
+    let teamSummary = [];
     Game.sandbox(state, () => {
       for (const mon of mons) {
         const reason = Game.can(mon);
@@ -114,13 +114,30 @@
       }));
     });
     return {
-      state, champion, team: teamSummary, now,
+      state, team: teamSummary, now,
       autoSwitch: state.autoSwitch !== false,
       pendingTeam: Array.isArray(save.road) && save.road.length > 0 &&
         JSON.stringify(save.road) !== JSON.stringify(save.team),
     };
   }
 
+  /** @param {import("./types/domain").Save} save @param {string} championId @param {number} [now] @param {string[]} [teamIds] @returns {import("./types/domain").PreparedFight} */
+  function prepare(save, championId, now = Date.now(), teamIds) {
+    const champion = champions(save).find(item => item.id === championId);
+    if (!champion) throw new Error('Choisis un champion de ta région actuelle.');
+    const prepared = prepareTeam(save, now, teamIds);
+    const { state } = prepared;
+    const [chapterIndex, stepIndex] = champion.id.split(':').map(Number);
+    const gym = clone(STORY.CHAPTERS[chapterIndex].steps[stepIndex]);
+    Object.assign(state.adv, {
+      chapter: chapterIndex, nodes: [{ ...gym, ch: chapterIndex, type: 'gym', gym }],
+      node: 0, battle: null, pending: null, event: null, zone: null, tower: null,
+      capture: { on: false }, loops: [],
+    });
+    return { ...prepared, champion };
+  }
+
+  /** @param {import("./types/domain").PreparedFight} prepared @param {import("./types/domain").CombatEvent[] | null} [trace] @param {number} [seed] */
   function fight(prepared, trace, seed) {
     const random = Math.random;
     if (seed !== undefined) {
@@ -131,6 +148,7 @@
     finally { Math.random = random; }
   }
 
+  /** @param {import("./types/domain").PreparedFight} prepared @param {import("./types/domain").CombatEvent[] | null} [trace] */
   function runFight(prepared, trace) {
     // Every trial starts with a fresh copy, including XP, buffs and progression.
     const state = clone(prepared.state);
@@ -143,21 +161,7 @@
         const events = Adventure.step();
         enemies ||= state.adv.battle?.enemies;
         if (trace) trace.push(...clone(events));
-        // The live UI applies these effects after each engine action.
-        for (const event of events) {
-          const gains = event.type === 'xp' ? [event] : event.type === 'buddyCandy' ? event.fed : event.candy?.fed || [];
-          for (const gain of gains) {
-            const evolution = gain.evolve;
-            if (!evolution) continue;
-            const mon = Game.getMon(evolution.uid);
-            if (!mon || mon.id !== evolution.from || Game.evoBlocked(mon, evolution.to)) continue;
-            if (!evolution.forced && Game.levelEvolutions(mon).length > 1) {
-              if (state.adv.battle) throw Object.assign(new Error('Une évolution nécessite un choix du joueur avant de poursuivre cette estimation.'), { code: 'EVOLUTION_CHOICE' });
-              continue; // A choice after the final KO cannot change the fight's outcome.
-            }
-            Game.evolveMon(evolution.uid, evolution.to);
-          }
-        }
+        applyEvolutions(events);
         if (events.some(event => event.type === 'victory' && event.kind === 'gym')) {
           return { won: true, progress: 1, actions, survivors: Game.teamMons().filter(mon => Game.curHp(mon) > 0).length };
         }
@@ -172,6 +176,26 @@
     });
   }
 
+  // The live UI applies these effects after each engine action.
+  /** @param {import("./types/domain").CombatEvent[]} events @param {boolean} [requireChoice] */
+  function applyEvolutions(events, requireChoice = false) {
+    for (const event of events) {
+      const gains = event.type === 'xp' ? [event] : event.type === 'buddyCandy' ? event.fed || [] : event.candy?.fed || [];
+      for (const gain of gains) {
+        const evolution = gain.evolve;
+        if (!evolution) continue;
+        const mon = Game.getMon(evolution.uid);
+        if (!mon || mon.id !== evolution.from || Game.evoBlocked(mon, evolution.to)) continue;
+        if (!evolution.forced && Game.levelEvolutions(mon).length > 1) {
+          if (requireChoice || Game.S.adv.battle) throw Object.assign(new Error('Une évolution nécessite un choix du joueur avant de poursuivre cette estimation.'), { code: 'EVOLUTION_CHOICE' });
+          continue; // A choice after the final KO cannot change the fight's outcome.
+        }
+        Game.evolveMon(evolution.uid, evolution.to);
+      }
+    }
+  }
+
+  /** @param {number} wins @param {number} runs */
   function interval(wins, runs) {
     if (!Number.isInteger(runs) || runs < 1 || !Number.isInteger(wins) || wins < 0 || wins > runs) {
       throw new Error('Résultat statistique invalide.');
@@ -182,5 +206,5 @@
     return [Math.max(0, center - margin), Math.min(1, center + margin)];
   }
 
-  globalThis.GymSimulator = { champions, available, prepare, fight, interval };
+  globalThis.GymSimulator = { restoreRegions, champions, available, prepareTeam, prepare, fight, applyEvolutions, interval };
 })();

@@ -1,23 +1,27 @@
+// @ts-check
 import { ActionButton } from './ActionButton.jsx';
+import { Tooltip } from './Tooltip.jsx';
+import { VERSION_WARNING } from '../version-warning.js';
 
+/** @param {number} value */
 const percent = value => `${Math.round(value * 100)} %`;
 
+/** @param {import("../../types/domain").AdvisorProps} props */
 export function TeamAdvisor({ id, advice, versionMismatch, onSearch, onCancel, onApply }) {
   const searching = advice.status === 'searching';
   const result = advice.result;
+  /** @param {import("react").ReactElement<import("react").ButtonHTMLAttributes<HTMLButtonElement> & { ref?: import("react").Ref<HTMLButtonElement> }>} action */
+  const withWarning = action => versionMismatch ? <Tooltip content={VERSION_WARNING}>{action}</Tooltip> : action;
   return <div id={id} className="pc-advisor" data-status={advice.status} aria-busy={searching || advice.status === 'applying'}>
     <div className="pc-advisor-actions">
-      <ActionButton onClick={onSearch} disabled={searching || advice.status === 'applying'}>
+      {withWarning(<ActionButton onClick={onSearch} disabled={searching || advice.status === 'applying'}>
         {searching ? 'Recherche en cours…' : result ? 'Rechercher à nouveau' : '✨ Proposer une équipe'}
-      </ActionButton>
+      </ActionButton>)}
       {searching && <ActionButton onClick={onCancel}>Annuler</ActionButton>}
     </div>
-    {versionMismatch && <p className="pc-advisor-warning" role="status">
-      Le moteur de l’extension ne correspond pas à la version du jeu. Les résultats peuvent être inexacts.
-    </p>}
     {searching && <p className="pc-advisor-note" role="status">
       {advice.stage === 'validation' ? 'Comparaison finale' : 'Recherche de compositions'}
-      {advice.teams > 0 ? ` · ${advice.teams} équipes testées` : '…'}
+      {(advice.teams || 0) > 0 ? ` · ${advice.teams} équipes testées` : '…'}
     </p>}
     {advice.status === 'error' && <p className="pc-advisor-error" role="alert">{advice.message}</p>}
     {result && <section className="pc-advisor-result" aria-label="Proposition d’équipe">
@@ -28,9 +32,9 @@ export function TeamAdvisor({ id, advice, versionMismatch, onSearch, onCancel, o
           <div><b>{mon.name}{mon.shiny ? ' ✨' : ''}</b><small>Nv. {mon.level}</small></div>
         </li>)}
       </ol>
-      <ActionButton onClick={onApply} disabled={advice.status === 'applying' || advice.applied}>
+      {withWarning(<ActionButton onClick={onApply} disabled={advice.status === 'applying' || advice.applied}>
         {advice.status === 'applying' ? 'Application…' : advice.applied ? 'Équipe appliquée' : 'Appliquer cette équipe'}
-      </ActionButton>
+      </ActionButton>)}
     </section>}
   </div>;
 }

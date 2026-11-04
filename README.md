@@ -86,7 +86,40 @@ les chapitres verrouillés, la navigation, le survol, le défilement au clavier,
 les thèmes clair/sombre, le toucher mobile et l’absence d’écriture par l’aperçu ; les captures de bureau
 1920 × 1080 sont enregistrées dans `artifacts/`.
 
-## Ce que mesure le résultat
+## XP/h des chapitres
+
+La fiche d’un chapitre accessible affiche aussi **XP/h**, y compris sans champion
+d’arène. Le calcul utilise 20 parcours indépendants avec l’équipe actuellement en
+route, soignée au départ de chaque parcours. Les combats sauvages et dresseurs,
+soins, défaites et gains de niveaux pendant le parcours passent par le moteur du
+jeu. Les captures ne changent pas la composition évaluée. Pour la Ligue, le
+résultat couvre le circuit entier, avec ses retours au départ en cas de défaite.
+
+Le nombre affiché additionne l’XP de combat de tous les membres de l’équipe,
+puis la rapporte à la durée cumulée des parcours, défaites comprises. Il utilise
+la cadence nominale du jeu (`ACTION_MS = 2800`) divisée par la vitesse effective
+du moteur : ×1, ×2 et ×2,5 pour les réglages ×1, ×2 et ×4. Les animations et les
+pauses du joueur ont une durée variable et ne sont pas chronométrées ; le symbole
+**≈** rappelle cette limite. Il s’agit du rendement en ligne,
+pas de l’XP hors ligne, et les Pokémon au plafond ne gagnent plus d’XP.
+
+L’XP/h et les chances de victoire sont calculées une seule fois à l’ouverture de
+la fiche du chapitre, avec la même copie de la sauvegarde. Les gains d’XP, le
+butin, les captures, les changements de vitesse ou le temps écoulé ne relancent
+aucun calcul tant que la fiche reste ouverte. Fermer puis rouvrir la fiche, ou
+consulter un autre chapitre puis revenir, lance une nouvelle estimation.
+Les choix de cadeaux et d’échanges sont ignorés dans la simulation, sans accorder de récompense ni changer
+l’équipe évaluée. Une évolution demandant un choix affiche « Indisponible » avec sa raison au survol
+ou au clavier. Une version différente du moteur affiche seulement un avertissement
+dans le tooltip : les calculs et les actions restent disponibles.
+Aucune simulation ne modifie la sauvegarde.
+
+```sh
+node --test tests/chapter-xp.test.cjs
+PLAYWRIGHT_MODULE=/chemin/node_modules/playwright GAME_DIR=/chemin/game node tests/chapter-xp.browser.cjs
+```
+
+## Ce que mesure le résultat de victoire
 
 - Un duel **direct contre le champion**, sans les dresseurs et trajets avant lui.
 - L’équipe **actuellement en route**, avec les mêmes niveaux, XP,
@@ -109,22 +142,15 @@ les thèmes clair/sombre, le toucher mobile et l’absence d’écriture par l�
 - L’estimation repose sur 100 combats indépendants. Une fréquence de
   100 % sur un échantillon n’est pas une garantie.
 
-La lecture porte sur la dernière sauvegarde automatique du jeu. Les changements
-de composition, de niveau, d’XP, de rang ou de réglage de combat
-actualisent l’estimation. Les PV et statuts actuels sont ignorés puisque l’équipe
-part soignée. Pour limiter la charge pendant le farm, les actualisations pour un
-même chapitre sont espacées d’au moins 10 secondes. Le dernier pourcentage
-reste visible pendant les actualisations, puis est remplacé directement par
-la nouvelle valeur. « Calcul… » apparaît uniquement lorsqu’aucun résultat
-n’est encore disponible pour le champion affiché, y compris après un retour
-sur sa fiche. Aucun clic ne déclenche de recalcul.
-Les actualisations reprennent aussi après un retour avec Précédent ou Suivant,
-même si le navigateur restaure la page depuis son cache.
-Les résultats récents sont conservés en mémoire pour éviter de recalculer à
-chaque sélection ou rafraîchissement de la fiche. Les chapitres sans champion
-d’arène n’affichent pas de pourcentage. Les modes événement, raid, zone
-légendaire et Tour ne sont pas pris en
-charge : revenir à l’aventure normale.
+La lecture porte sur la dernière sauvegarde automatique du jeu au moment de
+l’ouverture de la fiche. Les PV et statuts actuels sont ignorés puisque l’équipe
+part soignée. Un rafraîchissement visuel de la fiche conserve les résultats de
+cette visite ; un changement de chapitre ou une fermeture suivie d’une réouverture
+lance un nouveau calcul. Revenir à l’onglet du navigateur ne relance pas le calcul.
+Un retour via Précédent/Suivant après avoir quitté la page constitue une nouvelle
+visite. Les chapitres sans champion d’arène n’affichent pas de pourcentage.
+Les modes événement, raid, zone légendaire et Tour ne sont pas pris en charge :
+revenir à l’aventure normale.
 
 ## Proposition d’équipe
 
@@ -194,8 +220,17 @@ Pour reconstruire les composants React (le bundle prêt à charger est fourni) :
 
 ```powershell
 npm ci
+npm run typecheck
 npm run build:extension
 ```
+
+Le JavaScript et les composants JSX maintenus sont vérifiés en mode strict avec
+`@ts-check` et des annotations JSDoc. `types/domain.d.ts` décrit les sauvegardes,
+les résultats, les messages et la surface du moteur utilisée par l’extension.
+`npm run typecheck` vérifie ces contrats sans produire de fichiers. Le moteur,
+les données et le bundle UI générés sont exclus du contrôle ; les sources JSX
+sont contrôlées avant leur compilation. Les dépendances de types servent au
+développement uniquement.
 
 Les versions de React et d’esbuild sont verrouillées par `package-lock.json`.
 Node n’est nécessaire que pour développer ou reconstruire l’extension.
@@ -217,8 +252,8 @@ Un contrôle navigateur optionnel se lance avec
 sont déjà installés. `PLAYWRIGHT_MODULE` peut désigner un paquet Playwright
 existant, et `BROWSER_EXECUTABLE` le chemin du navigateur. Le test utilise un
 profil temporaire et une équipe fictive. Il vérifie le badge automatique,
-l’absence d’écriture dans la sauvegarde, le cache, le recalcul après changement
-de niveau, la navigation rapide entre champions et l’avertissement de
+l’absence d’écriture dans la sauvegarde, la stabilité du résultat après un gain
+de niveau, le calcul unique par visite, la navigation rapide entre champions et l’avertissement de
 version sans blocage du calcul. Il vérifie ensuite l’emplacement et la navigation dans la vraie copie
 locale du jeu, y compris sur petit écran, ainsi qu’une vraie restauration du
 cache de navigation après modification de la sauvegarde. Il ne lit pas le

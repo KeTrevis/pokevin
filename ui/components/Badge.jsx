@@ -1,5 +1,7 @@
+// @ts-check
 import { Tooltip } from './Tooltip.jsx';
 
+/** @param {import("../../types/domain").BadgeProps} props */
 export function Badge({ id, icon, label, value = '', tone = 'neutral', tooltip, onClick }) {
   const Element = onClick ? 'button' : 'span';
   const badge = <Element id={id} className="pc-badge" data-tone={tone}

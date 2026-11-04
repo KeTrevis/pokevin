@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "chrome",
+      "react",
+      "react-dom"
+    ],
+    "skipLibCheck": true,
+    "strict": true
+  },
+  "include": [
+    "content.js",
+    "background.js",
+    "simulator.js",
+    "chapter-xp.js",
+    "optimizer.js",
+    "apply-team.js",
+    "ui/**/*.jsx",
+    "ui/version-warning.js",
+    "types/**/*.d.ts",
+    "tests/typecheck-contracts.js"
+  ]
+}

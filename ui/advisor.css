@@ -15,5 +15,4 @@
 .pc-advisor-team b { display: block; font-size: var(--fs-sm); color: var(--text); }
 .pc-advisor-team small { display: block; font-size: var(--fs-caption); color: var(--text-2); }
 .pc-advisor-error { color: var(--danger-text); font-size: var(--fs-caption); line-height: 1.5; }
-.pc-advisor-warning { margin: var(--s2) 0; color: #f59e0b; font-size: var(--fs-caption); line-height: 1.5; }
 @media(max-width: 640px) { .pc-advisor-team { grid-template-columns: 1fr; } }
