@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Poke’Catch — Coach d’arène",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "description": "Estime les chances face à un champion et propose une équipe parmi tes Pokémon, avec le moteur du jeu isolé de ta partie.",
   "minimum_chrome_version": "121",
   "browser_specific_settings": {

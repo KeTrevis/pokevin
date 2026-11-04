@@ -66,11 +66,16 @@ sa bulle et ses écouteurs. Un composant déplacé sans être détaché est cons
 
 ## Style et construction
 
-`ChapterPreview` reçoit `trainers`, `randomTrainers` et `versionMismatch` et utilise
+`ChapterPreview` reçoit `trainers` et `versionMismatch` et utilise
 un élément natif `details` pour le clavier et l’ouverture. `mountPreview` l’insère
 après les badges du chapitre ; les portraits et Pokémon utilisent les assets du
 jeu. Les équipes et niveaux sont générés dans `chapter-data.js` depuis le bundle
-officiel, sans chargement de code distant dans l’extension.
+officiel, sans chargement de code distant dans l’extension. Les entrées `random`
+portent `count`, `classes`, `size` et un ensemble de Pokémon possibles avec `min` /
+`max` ; les équipes fixes conservent les doublons et le champ `level`.
+Les équipes sont rendues à l’ouverture d’un `Tooltip` avec `interactive`, au survol,
+au focus ou au toucher. Sa variante interactive permet de traverser l’espace entre
+la ligne et la bulle, de faire défiler la liste et de fermer par Échap ou toucher extérieur.
 
 `badge.css` reprend `.mp-chips span`, `.pg-lv` et `.mp-chips > .wx` du fichier
 `game/bundle/app.3f7c34e1ef.css`. `Tooltip` réutilise les classes natives

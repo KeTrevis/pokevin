@@ -28,7 +28,6 @@
     const key = `${target}:${data.bundle}`;
     if (existing?.dataset.chapter === key) return;
     const props = { id: 'pc-chapter-preview', trainers,
-      randomTrainers: chapters.reduce((sum, chapter) => sum + chapter.randomTrainers, 0),
       versionMismatch: ![...document.scripts].some(script => {
         try { return new URL(script.src).pathname.endsWith('/' + data.bundle); } catch { return false; }
       }) };

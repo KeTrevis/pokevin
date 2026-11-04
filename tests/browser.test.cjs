@@ -231,13 +231,13 @@ async function main() {
     });
     assert.deepEqual(nativeStyle.badge, nativeStyle.native, 'Badge should use the same typography, padding and radius as native chips');
     assert.equal(await badge.locator('small').count(), 0, 'Badge should stay on one line');
-    const tooltip = game.locator('.pc-tooltip');
+    const tooltip = game.locator('.pc-tooltip:not(.pc-trainer-tooltip)');
     await badge.hover();
     await tooltip.waitFor({ state: 'visible' });
     assert.equal(await tooltip.innerText(), 'Chance of defeating the Gym Leader, calculated with the current team at 100% HP.');
     assert.equal(await badge.getAttribute('aria-describedby'), await tooltip.getAttribute('id'));
     const tooltipStyle = await game.evaluate(() => {
-      const ours = document.querySelector('.pc-tooltip');
+      const ours = document.querySelector('.pc-tooltip:not(.pc-trainer-tooltip)');
       const native = document.querySelector('#map-root .map-head .info-tip-box');
       const properties = ['backgroundColor', 'borderTopColor', 'borderTopWidth', 'borderRadius', 'paddingTop', 'paddingLeft', 'fontSize', 'fontFamily', 'lineHeight'];
       const styles = element => Object.fromEntries(properties.map(property => [property, getComputedStyle(element)[property]]));
@@ -287,7 +287,7 @@ async function main() {
     await game.locator('#map-root [data-ch="1"]').click();
     await ready();
     assert.equal(await badge.getAttribute('data-champion'), 'Ondine');
-    assert.equal(await game.locator('.pc-tooltip').count(), 1, 'React must remove the previous panel’s tooltip');
+    assert.equal(await game.locator('.pc-tooltip:not(.pc-trainer-tooltip)').count(), 1, 'React must remove the previous panel’s tooltip');
     await game.setViewportSize({ width: 390, height: 844 });
     await game.locator('#map-root .pg-det-x').click();
     await game.locator('#map-root .pg-info.det-open').waitFor({ state: 'detached' });

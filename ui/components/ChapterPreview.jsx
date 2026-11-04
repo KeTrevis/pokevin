@@ -1,24 +1,42 @@
-export function ChapterPreview({ id, trainers, randomTrainers, versionMismatch }) {
+import { Tooltip } from './Tooltip.jsx';
+
+const range = (min, max) => min === max ? min : `${min}–${max}`;
+const hideImage = event => { event.currentTarget.hidden = true; };
+
+export function ChapterPreview({ id, trainers, versionMismatch }) {
   return <details id={id} className="pc-chapter-preview">
-    <summary>Dresseurs et équipes <span>{trainers.length}</span></summary>
+    <summary>Dresseurs et équipes <span>{trainers.reduce((sum, trainer) => sum + (trainer.count || 1), 0)}</span></summary>
     {versionMismatch && <p className="pc-preview-note" role="status">Version du jeu différente : les équipes peuvent avoir changé.</p>}
     <ol className="pc-preview-trainers">
       {trainers.map(trainer => <li key={trainer.key}>
-        <div className="pc-preview-heading">
-          <img className="pc-preview-portrait" loading="lazy" alt=""
-            src={trainer.boss ? `assets/pokemon/${trainer.boss}.png` : `assets/trainers/${trainer.sprite}.png`}
-            onError={event => { event.currentTarget.hidden = true; }} />
-          <div><b>{trainer.name}</b><small>{trainer.location}</small></div>
-        </div>
-        <ol className="pc-preview-team" aria-label={`Équipe de ${trainer.name}`}>
-          {trainer.team.map((mon, index) => <li key={index}>
-            <img src={`assets/pokemon/${mon.id}.png`} loading="lazy" alt=""
-              onError={event => { event.currentTarget.hidden = true; }} />
-            <div><b>{mon.name}</b><small>Nv. {mon.level}</small></div>
-          </li>)}
-        </ol>
+        <Tooltip interactive className="pc-trainer-tooltip" content={<>
+          <b>{trainer.name} · {trainer.location}</b>
+          {trainer.random && <>
+            <p className="pc-preview-note">Équipe aléatoire · {range(...trainer.size)} Pokémon par combat</p>
+            <b>Pokémon possibles</b>
+          </>}
+          <div className="pc-preview-roster" tabIndex={0} aria-label={trainer.random ? 'Pokémon possibles' : `Équipe de ${trainer.name}`}>
+            <ol className="pc-preview-team">
+              {trainer.team.map((mon, index) => <li key={index}>
+                <img src={`assets/pokemon/${mon.id}.png`} loading="lazy" alt="" onError={hideImage} />
+                <div><b>{mon.name}</b><small>Nv. {mon.level ?? range(mon.min, mon.max)}</small></div>
+              </li>)}
+            </ol>
+          </div>
+        </>}>
+          <button type="button" className="pc-preview-trainer" aria-label={`${trainer.name} · ${trainer.location}`}>
+            <span className="pc-preview-faces" aria-hidden="true">
+              {trainer.random ? trainer.classes.slice(0, 3).map(cls =>
+                <img key={cls.sprite} src={`assets/trainers/${cls.sprite}.png`} loading="lazy" alt="" onError={hideImage} />) :
+                <img src={trainer.boss ? `assets/pokemon/${trainer.boss}.png` : `assets/trainers/${trainer.sprite}.png`}
+                  loading="lazy" alt="" onError={hideImage} />}
+            </span>
+            <span className="pc-preview-identity"><b>{trainer.name}</b><small>{trainer.location}</small></span>
+            <small className="pc-preview-count">{trainer.count > 1 ? `×${trainer.count} · ` : ''}
+              {trainer.random ? 'Aléatoire' : `${trainer.team.length} Pokémon`}</small>
+          </button>
+        </Tooltip>
       </li>)}
     </ol>
-    {randomTrainers > 0 && <p className="pc-preview-note">Les équipes des dresseurs de route et des assistants d’arène sont tirées au hasard.</p>}
   </details>;
 }

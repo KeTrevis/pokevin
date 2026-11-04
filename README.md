@@ -1,6 +1,6 @@
 # Coach d’arène · Poke’Catch
 
-Extension Chrome / Edge / Firefox, version 0.4.4. Compatible avec le build du jeu
+Extension Chrome / Edge / Firefox, version 0.4.5. Compatible avec le build du jeu
 `b095b65025` (v0.4.72), sans natures de Pokémon.
 
 ## Installation
@@ -48,12 +48,20 @@ peuvent être inexacts ; la simulation et la recherche d’équipe restent dispo
 ## Aperçu des dresseurs
 
 Dans **Progression**, sélectionner un chapitre puis déplier **Dresseurs et équipes**.
-L’aperçu montre les dresseurs nommés et champions dans l’ordre du parcours,
-avec portrait, lieu, Pokémon et niveaux ajustés par les règles du jeu.
-Les doublons dans une équipe sont conservés. Les équipes des dresseurs de route
-et des assistants d’arène étant aléatoires, elles ne sont pas prédites.
-Les chapitres verrouillés, sans équipe fixe et la fiche groupée de la Ligue
-n’affichent pas cet aperçu. Aucune action ne modifie la sauvegarde.
+La liste montre les dresseurs de route (regroupés par lieu, avec leur nombre),
+les assistants d’arène, les dresseurs nommés et les champions dans l’ordre du parcours.
+Survoler un dresseur ou lui donner le focus au clavier pour ouvrir son équipe ;
+sur mobile, toucher sa ligne. Échap, un second toucher ou un toucher extérieur ferme
+l’infobulle. Les longues listes de Pokémon peuvent défiler, y compris au clavier.
+
+Les équipes fixes affichent leurs Pokémon et niveaux exacts, doublons conservés.
+Pour les combats aléatoires, l’infobulle affiche les Pokémon possibles, leurs plages
+de niveaux et le nombre de Pokémon par combat. Les possibilités couvrent les phases
+du jour, les météos du lieu et les évolutions natives ; elles ne prédisent pas le
+prochain tirage ni ses probabilités. Les portraits de ces lignes illustrent des classes
+possibles, pas des dresseurs déjà sélectionnés.
+Les chapitres verrouillés et la fiche groupée de la Ligue n’affichent pas cet aperçu.
+Aucune action ne modifie la sauvegarde.
 
 Les données d’aperçu sont indépendantes du moteur de simulation : elles viennent
 du bundle officiel `app.c4d608a3a9.js` consulté le 4 novembre 2026.
@@ -62,11 +70,11 @@ Pour actualiser ces données depuis un bundle original téléchargé :
 
 ```sh
 node tools/build_chapter_preview.cjs /chemin/app.<hash>.js
-npm run test:preview
+GAME_PREVIEW_BUNDLE=/chemin/app.<hash>.js npm run test:preview
 ```
 
-Le générateur extrait les équipes et applique les fonctions natives de calcul des
-niveaux pendant la construction. L’extension ne télécharge ni n’exécute de code du
+Le générateur utilise les fonctions natives de rencontres, d’assistants d’arène,
+d’évolution et de calcul des niveaux dans un environnement isolé, pendant la construction. L’extension ne télécharge ni n’exécute de code du
 jeu à l’exécution. Pour vérifier les interactions et l’affichage sur le site actuel :
 
 ```sh
@@ -74,8 +82,8 @@ PLAYWRIGHT_MODULE=/chemin/node_modules/playwright node tests/chapter-preview.bro
 ```
 
 Ce test utilise un profil temporaire et une sauvegarde synthétique. Il vérifie
-les chapitres verrouillés, la navigation, le clavier, les thèmes clair/sombre,
-l’affichage mobile et l’absence d’écriture par l’aperçu ; les captures de bureau
+les chapitres verrouillés, la navigation, le survol, le défilement au clavier,
+les thèmes clair/sombre, le toucher mobile et l’absence d’écriture par l’aperçu ; les captures de bureau
 1920 × 1080 sont enregistrées dans `artifacts/`.
 
 ## Ce que mesure le résultat
