@@ -1,0 +1,39 @@
+/* From app.3f7c34e1ef.css: .mp-chips span, .pg-lv and .mp-chips > .wx.
+   Keep native theme tokens instead of copying a fixed palette. */
+pc-ui-root { display: contents; }
+.pc-badge[data-tone] {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+  gap: var(--s1);
+  margin: 0;
+  padding: var(--s1) var(--s3);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--panel-2);
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  line-height: inherit;
+  white-space: pre;
+  text-transform: none;
+  box-shadow: none;
+}
+.pc-badge > i { font-style: normal; }
+.pc-badge[data-tone] > b { font-size: inherit; color: var(--pc-badge-color, var(--text)); }
+.pc-badge[data-tone="positive"] { --pc-badge-color: var(--green); }
+.pc-badge[data-tone="caution"] { --pc-badge-color: var(--caution); }
+.pc-badge[data-tone="negative"] { --pc-badge-color: var(--danger-text); }
+.pc-badge:is([data-tone="positive"], [data-tone="caution"], [data-tone="negative"]) {
+  background: color-mix(in srgb, var(--pc-badge-color) 16%, var(--panel-2));
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--pc-badge-color) 45%, var(--panel-2));
+}
+.pc-badge[data-tone="info"] {
+  background: color-mix(in srgb, var(--blue) 22%, var(--panel-2));
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--blue) 42%, var(--panel-2));
+}
+button.pc-badge { cursor: pointer; }
+button.pc-badge:hover { filter: brightness(1.08); }
+button.pc-badge:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }

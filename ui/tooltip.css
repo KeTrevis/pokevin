@@ -1,0 +1,16 @@
+/* The native .bag-tip / .ftip rules provide the surface, border, radius and spacing.
+   These text rules match .tip-host .info-tip-box, without inheriting badge colors. */
+.pc-tooltip {
+  position: fixed;
+  z-index: 90;
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  font-family: var(--font);
+  font-size: var(--fs-caption);
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--text);
+  text-align: left;
+  white-space: normal;
+  pointer-events: none;
+}

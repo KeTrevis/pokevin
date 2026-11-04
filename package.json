@@ -1,0 +1,10 @@
+{
+  "name": "pokecatch-arena-coach",
+  "private": true,
+  "scripts": {
+    "build:extension": "esbuild ui/index.jsx --bundle --minify --jsx=automatic --format=iife --outfile=ui/react-ui.js",
+    "test:preview": "node --test tests/chapter-preview.test.cjs"
+  },
+  "dependencies": { "react": "19.2.0", "react-dom": "19.2.0" },
+  "devDependencies": { "esbuild": "0.25.12" }
+}

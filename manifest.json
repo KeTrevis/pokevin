@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Poke’Catch — Coach d’arène",
+  "version": "0.4.4",
+  "description": "Estime les chances face à un champion et propose une équipe parmi tes Pokémon, avec le moteur du jeu isolé de ta partie.",
+  "minimum_chrome_version": "121",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "arena-coach@pokecatch.local",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": { "required": ["none"] }
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "scripts": ["engine/core.js", "simulator.js", "optimizer.js", "background.js"]
+  },
+  "content_scripts": [{
+    "matches": ["http://localhost/*", "http://127.0.0.1/*", "https://pokecatch-online.netlify.app/*"],
+    "js": ["ui/chapter-data.js", "ui/react-ui.js", "apply-team.js", "content.js"],
+    "css": ["ui/badge.css", "ui/tooltip.css", "ui/advisor.css", "ui/chapter-preview.css"],
+    "run_at": "document_idle"
+  }],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'self'"
+  }
+}
