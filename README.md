@@ -45,6 +45,12 @@ L’extension accepte aussi le domaine officiel. Si le nom du bundle ne correspo
 pas à celui du moteur embarqué, un avertissement orange signale que les résultats
 peuvent être inexacts ; la simulation et la recherche d’équipe restent disponibles.
 
+## Ponte à la Pension
+
+Le temps restant avant le prochain œuf apparaît sous la jauge du Métamorph,
+y compris sur mobile. Il reprend le délai et la langue de l’infobulle du jeu
+et suit les mises à jour de la Pension, sans modifier la sauvegarde.
+
 ## Pokédex des amis
 
 Dans **Amis**, ouvrir la carte d’un ami accepté puis cliquer sur l’icône **Pokédex**

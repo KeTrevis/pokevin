@@ -1,0 +1,26 @@
+#pen-res .pen-row[data-pc-egg-next] {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+#pen-res .pen-row[data-pc-egg-next]::after {
+  content: attr(data-pc-egg-next);
+  flex-basis: 100%;
+  color: var(--text);
+}
+
+@media (max-width: 640px) {
+  #pen-res .pen-row[data-pc-egg-next] {
+    font-size: 0;
+    gap: 0;
+  }
+
+  #pen-res .pen-row[data-pc-egg-next] > * {
+    display: none;
+  }
+
+  #pen-res .pen-row[data-pc-egg-next]::after {
+    font-size: var(--fs-micro);
+    line-height: 1.1;
+  }
+}
