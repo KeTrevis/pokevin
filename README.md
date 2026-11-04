@@ -45,6 +45,36 @@ L’extension accepte aussi le domaine officiel. Si le nom du bundle ne correspo
 pas à celui du moteur embarqué, un avertissement orange signale que les résultats
 peuvent être inexacts ; la simulation et la recherche d’équipe restent disponibles.
 
+## Pokédex des amis
+
+Dans **Amis**, ouvrir la carte d’un ami accepté puis cliquer sur l’icône **Pokédex**
+à côté de son nom. La fenêtre reprend les régions, les barres de
+progression et les tuiles du Pokédex du jeu. Les espèces capturées apparaissent
+en couleur, les manquantes en gris. La recherche par nom ou numéro permet de parcourir sa collection.
+Échap ou la croix ferment la fenêtre et ramènent à la carte d’ami. Les noms,
+types et régions utilisent les données embarquées ; les images et styles viennent du jeu.
+
+La consultation utilise la session de connexion du jeu et sa propre API
+`friend_card`, sans serveur supplémentaire ni installation chez l’ami. Elle
+reflète sa dernière sauvegarde en ligne, pas nécessairement sa partie actuelle.
+L’API de carte ne fournit pas la liste détaillée des chromatiques : ce filtre
+n’est donc pas proposé. Aucune sauvegarde ni relation d’amitié n’est modifiée.
+Une session absente ou expirée et les erreurs réseau sont affichées dans la
+fenêtre, avec un bouton pour réessayer. La session n’est ni copiée dans le
+stockage de l’extension ni transmise ailleurs qu’à l’API du jeu.
+
+```sh
+PLAYWRIGHT_MODULE=/chemin/node_modules/playwright node tests/friend-dex.browser.cjs
+```
+
+Ce test charge réellement l’extension avec une réponse API contrôlée et une
+session fictive. Il vérifie le bouton dans la carte d’ami, les grilles de régions,
+la recherche, l’absence de filtres, le clavier, le mobile, les thèmes, les erreurs et
+l’absence d’écriture dans la sauvegarde. Les captures
+1920 × 1080 sont enregistrées dans `artifacts/friend-dex-dark.png` et
+`artifacts/friend-dex-light.png`, ainsi que `artifacts/friend-card-pokedex.png`.
+La réponse avec un vrai compte reste à vérifier.
+
 ## Aperçu des dresseurs
 
 Dans **Progression**, sélectionner un chapitre puis déplier **Dresseurs et équipes**.

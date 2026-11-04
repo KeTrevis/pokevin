@@ -18,7 +18,7 @@
   "content_scripts": [{
     "matches": ["http://localhost/*", "http://127.0.0.1/*", "https://pokecatch-online.netlify.app/*"],
     "js": ["ui/chapter-data.js", "ui/react-ui.js", "apply-team.js", "content.js"],
-    "css": ["ui/badge.css", "ui/tooltip.css", "ui/advisor.css", "ui/chapter-preview.css"],
+    "css": ["ui/badge.css", "ui/tooltip.css", "ui/advisor.css", "ui/chapter-preview.css", "ui/friend-dex.css"],
     "run_at": "document_idle"
   }],
   "content_security_policy": {

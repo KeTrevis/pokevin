@@ -5,6 +5,16 @@ if (typeof importScripts === 'function') importScripts('engine/core.js', 'simula
 const versionReady = fetch(chrome.runtime.getURL('engine/version.json')).then(response => response.json());
 const RUNS = 100;
 
+chrome.runtime.onMessage.addListener((message, _sender, respond) => {
+  if (message?.type === 'friend-pokedex-species') {
+    respond({
+      species: PokeCatchEngine.POKEDEX.map(({ id, name, num, types }) => ({ id, name, num, types })),
+      regions: PokeCatchEngine.STORY.REGIONS.filter(region => region.dex)
+        .map(({ key, name, dex, color }) => ({ key, name, dex, color })),
+    });
+  }
+});
+
 /** @param {import("./types/domain").PreparedFight} prepared */
 function* estimate(prepared) {
   let wins = 0;

@@ -114,11 +114,15 @@ export interface ChapterVisit {
 }
 
 // Public surface used from the generated game engine; its implementation stays untouched.
+export interface DexSpecies { id: number; name: string; num?: number; types: string[] }
+export interface DexRegion { key: string; name: string; dex: [number, number]; color: string }
+export interface DexCatalog { species: DexSpecies[]; regions: DexRegion[] }
 export interface Engine {
+  POKEDEX: DexSpecies[];
   setSnapshotTime(now: number): void;
   CONFIG: { TEAM_SIZE: number; MAX_LEVEL: number; ACTION_MS: number; UNDERGROUND: { RANK_MAX: number } };
   STORY: {
-    REGIONS: Array<{ key: string; name: string; open: boolean }>;
+    REGIONS: Array<{ key: string; name: string; open: boolean; dex?: [number, number]; color: string }>;
     CHAPTERS: Array<{ name: string; league?: boolean; steps: StoryStep[] }>;
     regionOf(chapter: number): { key: string; name: string };
     gymTeam(chapter: number, gym: StoryStep): Array<[number, number]>;
