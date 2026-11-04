@@ -7,6 +7,7 @@ import { ChapterPreview } from './components/ChapterPreview.jsx';
 import { EncounterCoach } from './components/EncounterCoach.jsx';
 import { VERSION_WARNING } from './version-warning.js';
 import './friend-dex.jsx';
+import './pension.js';
 
 // Small bridge for the existing non-React simulation controller.
 /** @type {WeakMap<Element, { update(patch: object): void, dispose(): void }>} */

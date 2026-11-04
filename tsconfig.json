@@ -29,6 +29,7 @@
     "apply-team.js",
     "ui/**/*.jsx",
     "ui/version-warning.js",
+    "ui/pension.js",
     "types/**/*.d.ts",
     "tests/typecheck-contracts.js",
     "encounter-simulator.js",
