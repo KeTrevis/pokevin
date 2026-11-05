@@ -24,8 +24,18 @@ avec `manifest.json` à la racine.
 7. Cliquer sur **✨ Proposer une équipe**, sous les badges, pour chercher une
    composition parmi les Pokémon disponibles dans l’équipe et le PC.
 
-Après une mise à jour, recharger l’extension dans la page des extensions, puis
-recharger l’onglet du jeu. Les estimations sont entièrement automatiques.
+Pour une mise à jour, remplacer les fichiers dans le même dossier, recharger
+l’extension dans la page des extensions, puis recharger l’onglet du jeu.
+Les estimations sont entièrement automatiques.
+
+La clé publique `key` du manifeste fixe l’identifiant Chrome / Edge de Pokevin,
+même depuis un autre dossier ou avec une nouvelle version. Ne pas la régénérer
+entre les releases. Les copies installées avant cet ajout ont des identifiants
+différents : les supprimer une fois dans `chrome://extensions`, puis charger la
+nouvelle version. Recharger ensuite le jeu pour retirer leurs anciens scripts.
+
+Vérification de l’identité entre deux versions chargées depuis des dossiers distincts :
+`PLAYWRIGHT_MODULE=/chemin/node_modules/playwright node tests/extension-identity.browser.cjs`.
 
 ### Firefox (140 ou ultérieur)
 

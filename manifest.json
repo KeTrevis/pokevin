@@ -1,6 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Pokevin",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwwYMU/eMoKGoCktyyBbGXeMhYh4OYsKUAII3A0RtWqU0nX1pGzAkCocMYfDiGMg6UZkKPxJjUVzZZfba7fLLDGr7BYlvYVBp5UJv3jXBPMhxuLl5Gc+V19u6ffrJUl3bHTviLsbC+ZHiz90ym6Tb1ARzil/JzpzNtAeRpgfUsScPC+u5fPOM0knT4c0blJgD3Z9RrP2GJ/k4hJX15AKOwkGKz0UIpXcLUsht8wGGauHFS2cFJ80fA1aW2T6hvhcahtGYeogWx7/oVHXslD4pNGIu7TRGRrjeMNT6vm0nmApre5DG3g5+FZ05y1fKodjWqae48A9IaSeWzulMHkEXNwIDAQAB",
   "version": "0.4.6",
   "description": "Estime les chances de victoire des champions et rencontres spéciales, et propose une équipe avec le moteur du jeu isolé de ta partie.",
   "minimum_chrome_version": "121",
