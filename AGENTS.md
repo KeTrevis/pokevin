@@ -1,3 +1,7 @@
+# Compatibilité des navigateurs
+
+- L’extension doit rester compatible avec Firefox et Google Chrome. Toute modification doit préserver le fonctionnement sur les deux navigateurs.
+
 # Compatibilité des versions du jeu
 
 - Une différence de version entre le moteur embarqué dans l’extension et le moteur réel du jeu ne doit jamais, à elle seule, bloquer une fonctionnalité, une simulation ou l’affichage d’un résultat.
