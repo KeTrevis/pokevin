@@ -1,6 +1,8 @@
-name: Package extension
+name: Release extension
 
 on:
+  push:
+    branches: [main]
   release:
     types: [published]
 
@@ -10,6 +12,8 @@ permissions:
 jobs:
   package:
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -21,10 +25,27 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build:extension
+      - name: Set automatic release version
+        if: github.event_name == 'push'
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+          const build = Number(process.env.GITHUB_RUN_NUMBER);
+          if (!Number.isInteger(build) || build < 1 || build > 65535) throw new Error('Invalid extension build number');
+          manifest.version = `${manifest.version.split('.').slice(0, 3).join('.')}.${build}`;
+          fs.writeFileSync('manifest.json', JSON.stringify(manifest, null, 2) + '\n');
+          fs.appendFileSync(process.env.GITHUB_ENV, `RELEASE_TAG=v${manifest.version}\n`);
+          NODE
       - name: Create extension ZIP
         run: zip pokevin.zip manifest.json *.js engine/core.js engine/version.json ui/*.js ui/*.css ui/*.txt
-      - name: Attach ZIP to release
+      - name: Publish release with extension ZIP
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-        run: gh release upload "$RELEASE_TAG" pokevin.zip --repo "$GITHUB_REPOSITORY" --clobber
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = push ] && ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" pokevin.zip --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" --title "Pokevin ${RELEASE_TAG#v}" --generate-notes
+          else
+            gh release upload "$RELEASE_TAG" pokevin.zip --repo "$GITHUB_REPOSITORY" --clobber
+          fi
