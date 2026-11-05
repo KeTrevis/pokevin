@@ -5,6 +5,10 @@ Extension Chrome / Edge / Firefox, version 0.4.5. Compatible avec le build du je
 
 ## Installation
 
+Télécharger `pokevin.zip` depuis les [releases GitHub](https://github.com/KeTrevis/pokevin/releases),
+puis extraire l’archive dans un dossier. Le ZIP contient l’extension prête à charger,
+avec `manifest.json` à la racine.
+
 ### Chrome et Edge (121 ou ultérieur)
 
 1. Ouvrir `chrome://extensions` ou `edge://extensions`.
@@ -282,6 +286,15 @@ HTTP `localhost`, `127.0.0.1` et le domaine HTTPS
 `pokecatch-online.netlify.app`. Il ajoute un badge au DOM et lit la sauvegarde.
 Le calcul est découpé en petits lots annulables dès que la fiche est quittée ou
 que le champion change. Il n’y a ni stockage persistant ni script téléchargé.
+
+## Releases
+
+Publier une release GitHub depuis un tag contenant `.github/workflows/release.yml`
+lance automatiquement l’installation des dépendances, le contrôle des types et la
+compilation de l’interface. L’action joint ensuite `pokevin.zip` à la release,
+y compris pour une préversion. L’archive contient les fichiers nécessaires à
+l’exécution et les mentions légales, sans les dépendances de développement ni les tests.
+Une relance de l’action remplace le ZIP existant. Aucun secret à configurer.
 
 ## Reproduction et vérification
 
