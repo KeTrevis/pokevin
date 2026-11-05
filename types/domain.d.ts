@@ -96,7 +96,9 @@ export interface PreparedTeam { state: Save; team: TeamMon[]; now: number; autoS
 export interface PreparedFight extends PreparedTeam { champion: Champion; encounterId?: string }
 export interface FightResult { won: boolean; progress: number; actions: number; survivors: number }
 export interface Progress { done: number; runs: number }
-export interface WorkerRequest { type: 'run' | 'optimize' | 'xp'; requestId: number; chapter: number; save: Save }
+export type XPTarget = number | `league:${string}` | `zone:${number}`;
+export type WorkerRequest = { type: 'run' | 'optimize'; requestId: number; chapter: number; save: Save } |
+  { type: 'xp'; requestId: number; chapter: XPTarget; save: Save };
 export interface EncounterRequest { type: 'encounter' | 'encounter-optimize'; requestId: number; encounterId: string; save: Save }
 export type ControlRequest = WorkerRequest | EncounterRequest | { type: 'ping' | 'cancel' };
 export type ReadyReply = { type: 'ready'; bundle: string; chapters: number[]; encounters: Encounter[] };
@@ -125,7 +127,7 @@ export interface Advice {
 }
 export type EstimateResult<T> = T | { error: string };
 export interface ChapterVisit {
-  chapter: number; save?: Save; xpStarted: boolean; gymStarted: boolean;
+  chapter: XPTarget; save?: Save; xpStarted: boolean; gymStarted: boolean;
   xp?: EstimateResult<XPResult>; gym?: EstimateResult<GymResult>;
 }
 

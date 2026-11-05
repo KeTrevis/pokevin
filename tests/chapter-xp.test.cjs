@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 require('../engine/core.js');
 require('../simulator.js');
+require('../encounter-simulator.js');
 require('../chapter-xp.js');
 const { Game, STORY, CONFIG, Adventure } = PokeCatchEngine;
 const NOW = Date.UTC(2026, 10, 4, 12);
@@ -80,6 +81,40 @@ test('a league selection simulates the whole circuit', () => {
   assert.equal(result.league, true);
   assert.equal(result.completed + result.defeats, 20);
   assert.ok(result.elapsedMs > 0);
+});
+
+test('native league targets resolve the complete circuit in each region', () => {
+  for (const region of STORY.REGIONS.filter(region => region.key)) {
+    const chapter = STORY.CHAPTERS.findIndex((entry, index) => entry.league && STORY.regionOf(index).key === region.key);
+    const save = fixture(chapter + 1, [150], 100);
+    assert.deepEqual(estimate(save, `league:${region.key}`), estimate(save, chapter));
+    assert.throws(() => estimate(save, 'league:unknown'), /accessible/);
+    save.adv.unlocked = chapter - 1;
+    assert.throws(() => estimate(save, `league:${region.key}`), /accessible/);
+  }
+});
+
+test('legendary zones measure the dedicated team, speed and defeats without changing the save', () => {
+  const save = fixture(4, [76, 112, 143, 248, 3, 9], 100);
+  save.mons.forEach(mon => { mon.shiny = true; mon.rank = 5; });
+  save.mons[5].level = 10;
+  save.eventTeams['zone:145'] = [...save.team];
+  save.team = [save.mons[5].uid];
+  save.road = [...save.team];
+  const before = JSON.stringify(save);
+  const result = estimate(save, 'zone:145');
+  assert.ok(result.completed > 0);
+  assert.equal(result.completed + result.defeats, 20);
+  assert.ok(result.xp > 0 && result.xpPerHour > 0);
+  assert.equal(result.league, false);
+  assert.equal(JSON.stringify(save), before);
+  save.adv.speed = 2;
+  const fast = estimate(save, 'zone:145');
+  assert.equal(fast.xp, result.xp);
+  assert.ok(Math.abs(fast.xpPerHour / result.xpPerHour - 2) < 1e-8);
+  save.eventTeams['zone:145'] = [save.mons[5].uid];
+  assert.equal(estimate(save, 'zone:145').defeats, 20);
+  assert.throws(() => estimate(save, 'zone:493'), /serveur/);
 });
 
 test('uses the road team and rejects locked chapters and incompatible saves', () => {

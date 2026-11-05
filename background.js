@@ -53,7 +53,7 @@ chrome.runtime.onConnect.addListener(port => {
       await versionReady;
       if (job !== current) return;
       const special = message.type === 'encounter' || message.type === 'encounter-optimize';
-      if (!special && (!('chapter' in message) || !Number.isInteger(message.chapter))) throw new Error('Chapitre invalide.');
+      if (!special && message.type !== 'xp' && (!('chapter' in message) || !Number.isInteger(message.chapter))) throw new Error('Chapitre invalide.');
       const xp = message.type === 'xp';
       const champion = xp || special ? null : GymSimulator.champions(message.save).find(item => item.chapter === ('chapter' in message ? message.chapter : -1));
       if (!xp && !special && !champion) {

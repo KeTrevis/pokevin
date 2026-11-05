@@ -175,8 +175,77 @@ async function main() {
       return tooltip && !tooltip.textContent.includes('Version du jeu différente');
     });
     await ready();
+    // Native League and zone panels have .mp-det without .ch-det.
+    const specialTeam = [76, 112, 143, 248, 3, 9].map((id, index) => ({
+      ...Game.makeMon(id, index === 5 ? 10 : 100, { shiny: true }), rank: 5, uid: `special-${index}`,
+    }));
+    await page.evaluate(mons => {
+      const state = JSON.parse(localStorage.getItem('gachamon-save-v1'));
+      state.mons = mons; state.team = mons.map(mon => mon.uid); state.road = [...state.team];
+      state.adv.badges = ['Maître', 'Maître Johto', 'Maître Hoenn', 'Maître Sinnoh'];
+      localStorage.setItem('gachamon-save-v1', JSON.stringify(state));
+    }, specialTeam);
+    for (const region of PokeCatchEngine.STORY.REGIONS.filter(region => region.key)) {
+      const chapter = PokeCatchEngine.STORY.CHAPTERS.findIndex((entry, index) => entry.league && PokeCatchEngine.STORY.regionOf(index).key === region.key);
+      await page.evaluate(({ region, chapter }) => {
+        const state = JSON.parse(localStorage.getItem('gachamon-save-v1'));
+        state.adv.chapter = chapter; state.adv.unlocked = chapter;
+        state.travel = { to: ['kanto', 'johto', 'hoenn', 'sinnoh'] };
+        localStorage.setItem('gachamon-save-v1', JSON.stringify(state));
+        renderChapter('L');
+        document.querySelector('.mp-det').classList.remove('ch-det');
+        document.querySelector('h2').textContent = 'Ligue · ' + region.name;
+        document.querySelector('#map-root').insertAdjacentHTML('afterbegin', '<button class="rg active" data-rg="' + region.key + '">' + region.name + '</button>');
+      }, { region, chapter });
+      const snapshot = await page.evaluate(() => localStorage.getItem('gachamon-save-v1'));
+      await ready();
+      assert.equal(await page.evaluate(() => localStorage.getItem('gachamon-save-v1')), snapshot);
+      assert.doesNotMatch(await badge.innerText(), /≈ 0$/);
+      assert.equal((await requests()).at(-1).chapter, `league:${region.key}`);
+      await badge.focus();
+      await page.getByRole('tooltip').filter({ hasText: 'Ligue entière.' }).waitFor();
+      assert.equal(await page.locator('#pc-arena-chance').count(), 0);
+      if (region.key === 'kanto') {
+        await page.screenshot({ path: path.join(ROOT, 'artifacts/league-xp.png') });
+        const count = (await requests()).length;
+        await page.waitForTimeout(2300);
+        assert.equal((await requests()).length, count, 'League results remain cached during a visit');
+      }
+      await badge.press('Escape');
+    }
+    await page.evaluate(() => {
+      const state = JSON.parse(localStorage.getItem('gachamon-save-v1'));
+      state.adv.chapter = 4; state.adv.unlocked = 13;
+      localStorage.setItem('gachamon-save-v1', JSON.stringify(state));
+      renderChapter(0);
+      document.querySelector('.mp-det').classList.remove('ch-det');
+      document.querySelector('h2').textContent = 'Zone légendaire · Électhor';
+      const button = document.querySelector('.mp-go');
+      button.removeAttribute('data-go'); button.dataset.zone = '145';
+      const chips = document.querySelector('.mp-chips');
+      const hunt = document.createElement('div'); hunt.className = 'ev-hunt';
+      chips.replaceWith(hunt); hunt.append(chips);
+    });
+    await ready();
+    assert.equal((await requests()).at(-1).chapter, 'zone:145');
+    await badge.focus();
+    await page.getByRole('tooltip').filter({ hasText: 'Vitesse effective' }).waitFor();
+    const zoneShot = path.join(ROOT, 'artifacts/zone-xp.png');
+    await page.screenshot({ path: zoneShot });
+    for (const file of ['league-xp.png', 'zone-xp.png']) {
+      const png = fs.readFileSync(path.join(ROOT, 'artifacts', file));
+      assert.equal(png.readUInt32BE(16), 1920); assert.equal(png.readUInt32BE(20), 1080);
+    }
+    await badge.press('Escape');
+    await page.evaluate(() => document.querySelector('.mp-go').disabled = true);
+    await badge.waitFor({ state: 'detached' });
+    await page.evaluate(() => {
+      document.querySelector('.mp-go').removeAttribute('data-zone');
+      document.querySelector('.mp-det').setAttribute('data-evt-id', '145');
+    });
+    assert.equal(await badge.count(), 0, 'Events without combat XP have no farming estimate');
     assert.deepEqual(errors, []);
-    console.log('XP/h browser: real extension, one calculation per visit, no refresh on progress/speed/loot/redraw, reopening, keyboard tooltip, no-gym chapter, locks, cache, version mismatch, mobile, no save writes. Screenshots: 1920×1080.');
+    console.log('XP/h browser: real extension, one calculation per visit, no refresh on progress/speed/loot/redraw, reopening, keyboard tooltip, no-gym chapter, four regional leagues, legendary zones, locks, cache, version mismatch, mobile, no save writes. Screenshots: 1920×1080.');
   } finally {
     await context?.close();
     await new Promise(resolve => server.close(resolve));

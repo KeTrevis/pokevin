@@ -49,7 +49,7 @@
   let xpPort;
   /** @type {string | undefined} */
   let xpBundle;
-  /** @type {{ requestId: number, chapter: number } | null} */
+  /** @type {{ requestId: number, chapter: import('./types/domain').XPTarget } | null} */
   let xpJob = null;
   let xpRequest = 0, xpRetryAt = 0;
 
@@ -98,20 +98,14 @@
   }
 
   function updateXP() {
-    const panel = document.querySelector("#screen-map.active .pg-info .ch-det");
-    const button = /** @type {HTMLButtonElement | null | undefined} */ (panel?.querySelector(".mp-go[data-go]"));
-    const chips = panel?.querySelector(".mp-in > .mp-chips");
-    const target = button?.dataset.go;
-    if (
-      !chips ||
-      !button || button.disabled ||
-      !/^\d+$/.test(target || "")
-    ) {
+    const panel = document.querySelector("#screen-map.active .pg-info .mp-det");
+    const chips = panel?.querySelector(".mp-in .mp-chips");
+    const chapter = xpTarget();
+    if (!chips || chapter === null) {
       cancelXP();
       panel?.querySelector("#pc-chapter-xp")?.closest("pc-ui-root")?.remove();
       return;
     }
-    const chapter = Number(target);
     if (!visit) return;
     let badge = /** @type {HTMLElement | null} */ (chips.querySelector("#pc-chapter-xp"));
     if (!badge)
@@ -468,15 +462,27 @@
     }
   }
 
+  /** @returns {import('./types/domain').XPTarget | null} */
+  function xpTarget() {
+    const panel = document.querySelector('#screen-map.active .pg-info .mp-det:not(.det-out)');
+    const button = /** @type {HTMLButtonElement | null | undefined} */ (panel?.querySelector('.mp-go[data-go], [data-zone]'));
+    if (!button || button.disabled || panel?.closest('.det-out') || panel?.querySelector('.ev-hunt[hidden]')) return null;
+    if (button.dataset.zone && /^\d+$/.test(button.dataset.zone)) return `zone:${Number(button.dataset.zone)}`;
+    if (button.dataset.go === 'L') {
+      const region = /** @type {HTMLElement | null} */ (document.querySelector('#map-root .rg.active[data-rg]'))?.dataset.rg || 'kanto';
+      return `league:${region}`;
+    }
+    return /^\d+$/.test(button.dataset.go || '') ? Number(button.dataset.go) : null;
+  }
+
   function syncVisit() {
-    const button = /** @type {HTMLButtonElement | null} */ (document.querySelector("#screen-map.active .pg-info .ch-det .mp-go[data-go]"));
-    const chapter = button && !button.disabled && /^\d+$/.test(button.dataset.go || "") ? Number(button.dataset.go) : null;
+    const chapter = xpTarget();
     if (chapter === (visit?.chapter ?? null)) return;
     cancel();
     cancelXP();
     cancelSearch();
     visit = chapter === null ? undefined : { chapter, xpStarted: false, gymStarted: false };
-    advice = { status: "idle", chapter: chapter ?? undefined };
+    advice = { status: "idle", chapter: typeof chapter === 'number' ? chapter : undefined };
   }
 
   function update() {

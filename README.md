@@ -130,6 +130,10 @@ route, soignée au départ de chaque parcours. Les combats sauvages et dresseurs
 soins, défaites et gains de niveaux pendant le parcours passent par le moteur du
 jeu. Les captures ne changent pas la composition évaluée. Pour la Ligue, le
 résultat couvre le circuit entier, avec ses retours au départ en cas de défaite.
+Les fiches natives des ligues de chaque région affichent ce rendement. Les zones
+légendaires affichent aussi l’XP/h, calculée avec leur équipe dédiée (ou l’équipe
+d’aventure par défaut). Les chasses événementielles, raids et la Tour n’accordent
+pas d’XP de combat et n’affichent donc pas cet indicateur.
 
 Le nombre affiché additionne l’XP de combat de tous les membres de l’équipe,
 puis la rapporte à la durée cumulée des parcours, défaites comprises. Il utilise

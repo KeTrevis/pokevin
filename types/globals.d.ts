@@ -9,7 +9,7 @@ declare var EncounterSimulator: {
   interval(wins: number, runs: number): number[];
 };
 declare var ChapterXP: {
-  estimate(save: import('./domain').Save, chapter: number, now?: number): Generator<import('./domain').Progress, import('./domain').XPResult, unknown>;
+  estimate(save: import('./domain').Save, chapter: import('./domain').XPTarget, now?: number): Generator<import('./domain').Progress, import('./domain').XPResult, unknown>;
 };
 declare var TeamOptimizer: {
   search(save: import('./domain').Save, championId: string, now?: number): Generator<import('./domain').OptimizationProgress, import('./domain').OptimizationResult, unknown>;

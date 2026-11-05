@@ -5,28 +5,32 @@
   const { Game, Adventure, STORY, CONFIG, setSnapshotTime } = PokeCatchEngine;
   const RUNS = 20;
 
-  /** @param {import("./types/domain").Save} save @param {number} chapter @param {number} [now] @returns {Generator<import("./types/domain").Progress, import("./types/domain").XPResult, unknown>} */
-  function* estimate(save, chapter, now = Date.now()) {
-    const prepared = GymSimulator.prepareTeam(save, now);
+  /** @param {import("./types/domain").Save} save @param {import("./types/domain").XPTarget} target @param {number} [now] @returns {Generator<import("./types/domain").Progress, import("./types/domain").XPResult, unknown>} */
+  function* estimate(save, target, now = Date.now()) {
+    const zone = typeof target === 'string' && /^zone:\d+$/.test(target);
+    const chapter = typeof target === 'number' ? target :
+      zone ? save.adv.chapter : STORY.CHAPTERS.findIndex((entry, index) =>
+        entry.league && target === `league:${STORY.regionOf(index).key}`);
+    const prepared = zone ? EncounterSimulator.prepare(save, String(target), now) : GymSimulator.prepareTeam(save, now);
     if (!Number.isInteger(chapter) || !STORY.CHAPTERS[chapter] ||
         chapter > (save.adv.unlocked ?? save.adv.chapter) ||
         STORY.regionOf(chapter).key !== STORY.regionOf(save.adv.chapter).key) {
       throw new Error('Choisis un chapitre accessible de ta région actuelle.');
     }
     // League chapters form one continuous loop, including shared defeat resets.
-    const circuit = STORY.leagueOf(chapter) || [chapter];
+    const circuit = !zone && STORY.leagueOf(chapter) || [chapter];
     const teamIds = prepared.team.map(mon => mon.uid);
     let xp = 0, elapsedMs = 0, completed = 0, defeats = 0, speed = 1;
     for (let run = 0; run < RUNS; run++) {
       const state = structuredClone(prepared.state);
-      Object.assign(state.adv, { chapter: circuit[0], nodes: [], node: 0, battle: null,
+      if (!zone) Object.assign(state.adv, { chapter: circuit[0], nodes: [], node: 0, battle: null,
         pending: null, event: null, zone: null, tower: null, kept: {},
         loops: [Adventure.loopKey(chapter)], paused: false });
       let trialMs = 0, finished = false;
       setSnapshotTime(now);
       GymSimulator.restoreRegions(state);
       Game.sandbox(state, () => {
-        Adventure.buildChapter(circuit[0]);
+        if (!zone) Adventure.buildChapter(circuit[0]);
         speed = Adventure.speed();
       });
       for (let actions = 1; actions <= 20000; actions++) {
@@ -54,8 +58,8 @@
           if (['gift', 'waiting', 'noTeam'].includes(event.type)) {
             throw new Error('Termine les choix de ce chapitre dans le jeu avant d’estimer son XP/h.');
           }
-          if (event.type === 'defeat') { defeats++; finished = true; }
-          if (event.type === 'chapterEnd' && event.chapter === circuit.at(-1)) {
+          if (event.type === 'defeat' || zone && ['zoneOver', 'fled', 'skip'].includes(event.type)) { defeats++; finished = true; }
+          if (zone ? event.type === 'victory' : event.type === 'chapterEnd' && event.chapter === circuit.at(-1)) {
             completed++; finished = true;
           }
         }
