@@ -1,4 +1,4 @@
-# Coach d’arène · Poke’Catch
+# Pokevin
 
 Extension Chrome / Edge / Firefox, version 0.4.5. Compatible avec le build du jeu
 `b095b65025` (v0.4.72), sans natures de Pokémon.

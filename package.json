@@ -1,5 +1,5 @@
 {
-  "name": "pokecatch-arena-coach",
+  "name": "pokevin",
   "private": true,
   "scripts": {
     "build:extension": "esbuild ui/index.jsx --bundle --minify --jsx=automatic --format=iife --outfile=ui/react-ui.js",
