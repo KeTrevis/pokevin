@@ -299,10 +299,13 @@ que le champion change. Il n’y a ni stockage persistant ni script télécharg�
 
 ## Releases
 
-Publier une release GitHub depuis un tag contenant `.github/workflows/release.yml`
-lance automatiquement l’installation des dépendances, le contrôle des types et la
-compilation de l’interface. L’action joint ensuite `pokevin.zip` à cette même release,
-y compris pour une préversion, avec la version du manifeste du tag choisi.
+Chaque push sur `main` lance le contrôle des types, la compilation et la publication
+d’une release avec `pokevin.zip` en pièce jointe. Le tag et le manifeste du ZIP
+reçoivent une version à quatre nombres : `v0.4.6.1`, `v0.4.6.2`, etc. Les trois
+premiers viennent de `manifest.json`, le dernier est le numéro d’exécution du workflow.
+La release cible le commit du push ; aucun commit de version n’est ajouté au dépôt.
+Aucun tag ni release n’est à créer manuellement ; les releases manuelles ne déclenchent rien.
+
 L’archive contient les fichiers nécessaires à l’exécution et les mentions légales,
 sans les dépendances de développement ni les tests. Une relance de l’action remplace
 le ZIP existant. Aucun secret à configurer.
