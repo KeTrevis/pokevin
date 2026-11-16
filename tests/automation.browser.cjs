@@ -239,7 +239,7 @@ async function main() {
     await frame.getByText('Erreur de test',{exact:true}).waitFor();
     await page.setViewportSize({width:390,height:844});
     assert.equal(await page.evaluate(()=>document.querySelector('#screen-pokevin-scripts iframe').getBoundingClientRect().right<=innerWidth),true);
-    assert.equal(await frame.locator('body').evaluate(el => el.scrollWidth <= innerWidth),true);
+    await editorFrame.waitForFunction(() => document.body.scrollWidth <= innerWidth);
     await page.setViewportSize({width:1920,height:1080});
     while (await frame.locator('.delete-script').count()) {
       await frame.locator('.script-row').first().hover();
