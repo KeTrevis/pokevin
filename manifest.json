@@ -18,9 +18,18 @@
   },
   "content_scripts": [{
     "matches": ["http://localhost/*", "http://127.0.0.1/*", "https://pokecatch-online.netlify.app/*"],
-    "js": ["ui/chapter-data.js", "ui/react-ui.js", "save-reader.js", "apply-team.js", "pc-multiselect.js", "content.js", "encounter-content.js"],
+    "js": ["automation.js"],
+    "world": "MAIN",
+    "run_at": "document_start"
+  }, {
+    "matches": ["http://localhost/*", "http://127.0.0.1/*", "https://pokecatch-online.netlify.app/*"],
+    "js": ["editor-loader.js", "ui/chapter-data.js", "ui/react-ui.js", "save-reader.js", "apply-team.js", "pc-multiselect.js", "content.js", "encounter-content.js"],
     "css": ["ui/badge.css", "ui/tooltip.css", "ui/advisor.css", "ui/chapter-preview.css", "ui/friend-dex.css", "ui/pension.css", "ui/pc-multiselect.css"],
     "run_at": "document_idle"
+  }],
+  "web_accessible_resources": [{
+    "resources": ["ui/script-editor.html", "ui/script-editor.css", "ui/monaco-*.js", "ui/monaco-*.css", "ui/monaco-*.ttf"],
+    "matches": ["http://localhost/*", "http://127.0.0.1/*", "https://pokecatch-online.netlify.app/*"]
   }],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'self'"

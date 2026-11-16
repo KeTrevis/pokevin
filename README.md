@@ -67,6 +67,82 @@ L’extension accepte aussi le domaine officiel. Si le nom du bundle ne correspo
 pas à celui du moteur embarqué, un avertissement orange signale que les résultats
 peuvent être inexacts ; la simulation et la recherche d’équipe restent disponibles.
 
+## Automatisations JavaScript
+
+Ouvrir **Scripts** dans la barre de navigation. Cet écran affiche la liste des
+scripts à gauche et l’IDE dans la partie principale. **Nouveau script** crée un
+script vide ; son nom se modifie au-dessus de l’éditeur. Sélectionner un script,
+modifier le code puis cliquer sur l’icône **▶ Exécuter**, qui devient **■ Arrêter** pendant l’exécution (ou **Ctrl/Cmd + Entrée** pour basculer).
+Les mêmes commandes et une corbeille pour supprimer le script apparaissent au survol de son nom, au focus clavier ou directement sur écran tactile. Supprimer un script actif arrête ses callbacks. L’éditeur Monaco, utilisé par VS Code,
+est embarqué avec ses workers : aucune ressource d’édition ne vient d’un CDN.
+Il propose la coloration JavaScript, les suggestions (`Ctrl + Espace`), les types
+et la documentation de `pokevin`, l’aide aux paramètres et les diagnostics.
+Il est chargé uniquement à l’ouverture de Scripts.
+Modifier un script actif sauvegarde le code sans remplacer la version exécutée : l’icône **↻ Relancer** apparaît à côté de Stop. Avant de changer de script ou de quitter cet écran, une fenêtre propose de relancer, de continuer avec l’ancienne version ou d’annuler. Revenir au code exécuté ou arrêter le script retire cet avertissement.
+Les noms, le code et le dernier script sélectionné sont enregistrés localement
+pendant l’édition. L’ancien script unique est récupéré automatiquement sous le nom
+**Mon script**. Il faut relancer le script après un rechargement. Plusieurs scripts peuvent tourner en parallèle. Relancer un script remplace uniquement ses propres abonnements.
+**Arrêter**, supprimer un script actif ou appeler `pokevin.stop()` dans ce script retire seulement ses callbacks. Depuis la console, `window.pokevin.stop()` arrête tous les scripts et abonnements. Les scripts actifs sont indiqués dans la liste ; quitter
+l’onglet laisse leurs callbacks actifs. Un changement de chapitre lancé depuis cet
+écran conserve l’éditeur affiché.
+Ces commandes ne peuvent pas interrompre une boucle JavaScript infinie ni annuler
+les timers ou effets créés directement par le script.
+
+L’API `window.pokevin` est aussi disponible dans la console du jeu :
+
+```js
+const unsubscribe = pokevin.events.onChapterStarted(({ chapterId }) => {
+  console.log("Début du chapitre", chapterId);
+});
+
+pokevin.events.onChapterFinished(({ chapterId }) => {
+  console.log("Chapitre terminé", chapterId);
+});
+
+// Recommencer le chapitre après un combat contre un Pokémon errant.
+pokevin.events.onBattleFinished(({ chapterId, roamer }) => {
+  if (roamer) return pokevin.changeChapter(chapterId);
+});
+
+// Retirer un seul abonnement :
+unsubscribe();
+```
+
+`changeChapter(chapterId)` renvoie une Promise et utilise les commandes natives de la
+carte : aller au chapitre ou le recommencer s’il est déjà en cours. L’identifiant
+est l’index numérique du chapitre (une chaîne numérique fonctionne aussi).
+Le chapitre doit être accessible dans la région affichée sur la carte. Un
+identifiant invalide, un chapitre verrouillé, une fenêtre du jeu ouverte ou un
+changement déjà en cours produit une erreur. Les erreurs des callbacks sont
+signalées dans la console et dans l’éditeur sans interrompre les autres abonnés.
+
+Chaque callback reçoit un objet unique contenant `chapterId`. Les callbacks à
+deux paramètres de l’ancienne API doivent être adaptés ; les scripts enregistrés
+ne sont pas réécrits automatiquement.
+
+Les événements concernent l’aventure normale, hors zones, événements, Ligue Élite
+et Tour. Ils suivent les sauvegardes natives du jeu, avec jusqu’à quelques secondes
+de délai ; ils ne rejouent pas l’historique au chargement. `onChapterStarted` signale
+un changement ou un redémarrage du parcours ; `onChapterFinished` signale son
+achèvement, avant le début du suivant. Quitter manuellement un chapitre ne le
+termine pas. `onBattleFinished` signale le passage d’un nœud de combat et fournit
+son index `node` et l’identifiant d’espèce `roamer` si le nœud contient un errant.
+Il ne garantit ni une victoire ni une capture. Les détails d’un combat abandonné
+par changement de route ne sont pas émis. Éviter de changer de route sans condition
+dans `onChapterStarted`, ce qui créerait une boucle.
+
+Le code s’exécute dans la page du jeu, avec accès à sa sauvegarde et à sa session :
+exécuter uniquement du code de confiance. Il n’est pas isolé ni exécuté dans le
+service d’arrière-plan de l’extension. Une politique CSP du site interdisant
+l’évaluation dynamique peut empêcher son exécution ; l’erreur est affichée.
+Une différence de version du moteur n’empêche pas l’utilisation de cette API.
+
+```sh
+node --test tests/automation.test.cjs
+PLAYWRIGHT_MODULE=/chemin/node_modules/playwright GAME_URL=http://127.0.0.1:8087/ node tests/automation.browser.cjs
+GAME_DIR=/chemin/game node tests/firefox.test.cjs
+```
+
 ## Sélection multiple dans le PC
 
 Dans **Équipe/PC**, utiliser **Ctrl + clic** (ou **Cmd + clic** sur Mac) pour
@@ -345,7 +421,7 @@ Le script d’affichage s’exécute automatiquement uniquement sur les adresses
 HTTP `localhost`, `127.0.0.1` et le domaine HTTPS
 `pokecatch-online.netlify.app`. Il ajoute un badge au DOM et lit la sauvegarde.
 Le calcul est découpé en petits lots annulables dès que la fiche est quittée ou
-que le champion change. Il n’y a ni stockage persistant ni script téléchargé.
+que le champion change. Les scripts utilisateur sont stockés localement ; aucun script n’est téléchargé.
 
 ## Releases
 

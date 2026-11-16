@@ -2,11 +2,12 @@
   "name": "pokevin",
   "private": true,
   "scripts": {
-    "build:extension": "esbuild ui/index.jsx --bundle --minify --jsx=automatic --format=iife --outfile=ui/react-ui.js",
+    "build:extension": "esbuild ui/index.jsx --bundle --minify --jsx=automatic --format=iife --outfile=ui/react-ui.js && node tools/build_editor.cjs",
     "test:preview": "node --test tests/chapter-preview.test.cjs",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "monaco-editor": "0.57.0",
     "react": "19.2.0",
     "react-dom": "19.2.0"
   },
@@ -16,5 +17,8 @@
     "@types/react-dom": "19.3.0",
     "esbuild": "0.25.12",
     "typescript": "7.0.2"
+  },
+  "overrides": {
+    "dompurify": "3.4.18"
   }
 }

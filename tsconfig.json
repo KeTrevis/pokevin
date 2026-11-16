@@ -35,6 +35,9 @@
     "types/**/*.d.ts",
     "tests/typecheck-contracts.js",
     "encounter-simulator.js",
-    "encounter-content.js"
+    "encounter-content.js",
+    "automation.js",
+    "editor-loader.js",
+    "ui/script-editor.js"
   ]
 }

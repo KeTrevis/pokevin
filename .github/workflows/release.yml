@@ -33,7 +33,7 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_ENV, `RELEASE_TAG=v${manifest.version}\n`);
           NODE
       - name: Create extension ZIP
-        run: zip pokevin.zip manifest.json *.js engine/core.js engine/version.json ui/*.js ui/*.css ui/*.txt
+        run: zip pokevin.zip manifest.json *.js engine/core.js engine/version.json ui/*.js ui/*.css ui/*.txt ui/script-editor.html ui/*.ttf
       - name: Publish release with extension ZIP
         env:
           GH_TOKEN: ${{ github.token }}

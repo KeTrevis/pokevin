@@ -68,23 +68,108 @@ async function main() {
     const { context } = await command('browsingContext.create', { type: 'tab' });
     await command('browsingContext.setViewport', { context, viewport: {width:1920,height:1080} });
     const navigate = url => command('browsingContext.navigate', { context, url, wait: 'complete' });
-    const evaluate = async expression => {
-      const result = await command('script.evaluate', { expression: `JSON.stringify(${expression})`, target: { context }, awaitPromise: true });
+    const evaluate = async (expression, targetContext = context) => {
+      const result = await command('script.evaluate', { expression: `JSON.stringify(${expression})`, target: { context: targetContext }, awaitPromise: true });
       if (result.type === 'exception') throw new Error(result.exceptionDetails.text);
       return result.result.value == null ? null : JSON.parse(result.result.value);
     };
     const wait = async expression => {
       const deadline = Date.now() + 30000;
       do { if (await evaluate(expression)) return; await pause(150); } while (Date.now() < deadline);
-      throw new Error(`Timed out: ${expression}\n${await evaluate('document.body.innerText')}`);
+      throw new Error(`Timed out: ${expression}\n${await evaluate('localStorage.getItem("pokevin-scripts")')}\n${await evaluate('document.body.innerText')}`);
     };
     const origin = `http://127.0.0.1:${server.address().port}`;
     await navigate(origin + '/seed');
     await evaluate(`(() => {localStorage.setItem('gachamon-save-v1',${JSON.stringify(JSON.stringify(save))});localStorage.setItem('pokecatch.lang','fr');localStorage.setItem('pokecatch-guide-seen',JSON.stringify(['adv','catch','team','league']));return true;})()`);
     await navigate(origin + '/');
-    await wait("!!document.querySelector('.title-fx .ti-go')");
-    await evaluate("document.querySelector('.title-fx .ti-go').click()");
+    await wait("!!document.querySelector('#timeline .tl-node, .title-fx .ti-go')");
+    await evaluate("document.querySelector('.title-fx .ti-go')?.click()");
     await wait("!document.querySelector('.title-fx')");
+    assert.equal(await evaluate("typeof window.pokevin?.changeChapter"), 'function');
+    await evaluate("pokevin.changeChapter(0).then(() => true)");
+    await evaluate("document.querySelector('#pokevin-scripts').click()");
+    await wait("!!document.querySelector('#screen-pokevin-scripts.active')");
+    let editorContext;
+    for (let i = 0; i < 100 && !editorContext; i++) {
+      const tree = await command('browsingContext.getTree', { root: context });
+      editorContext = tree.contexts[0].children?.find(child => child.url.includes('script-editor.html'))?.context;
+      if (!editorContext) await pause(100);
+    }
+    assert.ok(editorContext, 'Editor frame loaded');
+    const editorEvaluate = expression => evaluate(expression, editorContext);
+    const editorWait = async expression => {
+      const deadline = Date.now() + 30000;
+      while (Date.now() < deadline) { if (await editorEvaluate(expression)) return; await pause(150); }
+      throw new Error('Editor timeout: ' + expression);
+    };
+    await editorWait("!!document.querySelector('.monaco-editor textarea')");
+    await editorEvaluate("document.querySelector('#run').click()");
+    await editorWait("document.querySelector('#status').textContent === 'Script exécuté.'");
+    await editorEvaluate("document.querySelector('#run').click()");
+    await editorWait("document.querySelector('#status').textContent === 'Callbacks arrêtés.'");
+    await editorEvaluate("document.querySelector('.monaco-editor textarea').focus()");
+    await command('input.performActions', { context, actions: [{ type:'key', id:'editor-keys', actions:[
+      {type:'keyDown',value:'\uE03D'}, {type:'keyDown',value:'a'}, {type:'keyUp',value:'a'}, {type:'keyUp',value:'\uE03D'},
+      ...[...'pokevin.'].flatMap(value=>[{type:'keyDown',value},{type:'keyUp',value}]),
+      {type:'keyDown',value:'\uE009'}, {type:'keyDown',value:' '}, {type:'keyUp',value:' '}, {type:'keyUp',value:'\uE009'},
+    ] }] });
+    await command('input.releaseActions', { context });
+    await editorWait("!!document.querySelector('.suggest-widget.visible') && document.querySelector('.suggest-widget.visible').textContent.includes('changeChapter')");
+    const setEditorCode = async code => {
+      await editorEvaluate("document.querySelector('.monaco-editor textarea').focus()");
+      await command('input.performActions', {context, actions:[{type:'key',id:'replace-code',actions:[
+        {type:'keyDown',value:'\uE03D'},{type:'keyDown',value:'a'},{type:'keyUp',value:'a'},{type:'keyUp',value:'\uE03D'},
+      ]}]});
+      await command('input.releaseActions', {context});
+      await command('input.performActions', {context, actions:[{type:'key',id:'script-code',actions:
+        [...code].flatMap(character => {
+          const value = character === '\n' ? '\uE007' : character;
+          return [{type:'keyDown',value},{type:'keyUp',value}];
+        }),
+      }]});
+      await command('input.releaseActions', {context});
+      await wait(`(() => {const library = JSON.parse(localStorage.getItem('pokevin-scripts')); return library.scripts.find(script => script.id === library.selectedId)?.code.replace(/\\s+/g, '') === ${JSON.stringify(code.replace(/\s+/g, ''))};})()`);
+    };
+    await editorEvaluate("(() => {const input = document.querySelector('#script-name'); input.value='Roamings Firefox';input.dispatchEvent(new Event('input',{bubbles:true}));})()");
+    await editorEvaluate("document.querySelector('#new-script').click()");
+    await editorWait("document.querySelector('#script-name').value === 'Script 2'");
+    await setEditorCode('const chapter = 14;');
+    await editorEvaluate("document.querySelector('#script-list button').click()");
+    await editorWait("document.querySelector('#script-name').value === 'Roamings Firefox'");
+    await setEditorCode('pokevin.events.onBattleFinished(({ chapterId, roamer }) => { if (roamer) pokevin.changeChapter(chapterId); });');
+    await editorWait(`(() => {
+      const tokens = [...document.querySelectorAll('.view-lines span[class*="mtk"]')];
+      const color = text => { const token = tokens.find(t => t.textContent === text); return token && getComputedStyle(token).color; };
+      return color('onBattleFinished') === 'rgb(220, 220, 170)' && color('changeChapter') === color('onBattleFinished')
+        && color('pokevin') === 'rgb(156, 220, 254)' && color('chapterId') === 'rgb(215, 186, 125)';
+    })()`);
+    await setEditorCode('pokevin.changeChapter(); const chapter = 14; // Chapitre');
+    await editorWait("!!document.querySelector('.squiggly-error')");
+    await editorWait(`(() => {
+      const tokens = [...document.querySelectorAll('.view-lines span[class*="mtk"]')];
+      const keyword = tokens.find(t => t.textContent.startsWith('const'));
+      const comment = tokens.find(t => t.textContent.startsWith('//'));
+      return keyword && comment && getComputedStyle(keyword).color !== getComputedStyle(comment).color;
+    })()`);
+    await setEditorCode('pokevin.changeChapter(14);');
+    await editorWait("!document.querySelector('.squiggly-error')");
+    await setEditorCode('globalThis.firefoxVersion = 1;');
+    await editorEvaluate("document.querySelector('#run').click()");
+    await wait("globalThis.firefoxVersion === 1");
+    await setEditorCode('globalThis.firefoxVersion = 2;');
+    await editorWait("!document.querySelector('#restart').hidden");
+    await evaluate("document.querySelector('#tabs [data-screen=map]').click()");
+    await editorWait("document.querySelector('#changes-dialog').open");
+    await editorEvaluate("document.querySelector('#changes-dialog').close('cancel')");
+    assert.equal(await evaluate("!!document.querySelector('#screen-pokevin-scripts.active')"),true);
+    await editorEvaluate("document.querySelector('#restart').click()");
+    await wait("globalThis.firefoxVersion === 2");
+    await editorWait("document.querySelector('#restart').hidden");
+    await editorEvaluate("document.querySelector('#run').click()");
+    await editorWait("document.querySelector('#run').dataset.icon === 'play'");
+    console.log('Firefox: restart indicator, navigation warning, highlighting, autocomplete and diagnostics passed.');
+    await evaluate("(() => {const button = document.querySelector('#tabs [data-screen=adventure]');button.click();button.focus();})()");
+    await wait("!document.querySelector('#screen-pokevin-scripts.active')");
     // The initial ordinary chapter must never show a roaming marker.
     assert.equal(await evaluate("document.querySelectorAll('#timeline .pc-timeline-roamer').length"), 0);
     await evaluate("document.querySelector('#tabs [data-screen=map]').click()");
@@ -104,6 +189,7 @@ async function main() {
     assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('gachamon-save-v1')).team"), proposed);
     await evaluate("document.querySelector('#tabs [data-screen=team]').click()");
     assert.deepEqual(await evaluate("[...document.querySelectorAll('#team-slots > .slot.filled')].map(item=>item.dataset.uid)"), proposed);
+    await wait("document.querySelectorAll('#pc-grid .pc-cell:not(.ug-out)').length >= 3");
     const pc = await evaluate("[...document.querySelectorAll('#pc-grid .pc-cell:not(.ug-out)')].slice(0,3).map(el=>({uid:el.dataset.uid,x:Math.round(el.getBoundingClientRect().left+el.clientWidth/2),y:Math.round(el.getBoundingClientRect().top+el.clientHeight/2)}))");
     assert.equal(pc.length, 3);
     await command('browsingContext.activate', {context});
