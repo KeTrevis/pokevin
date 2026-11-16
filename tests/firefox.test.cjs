@@ -150,7 +150,23 @@ async function main() {
     await wait("document.querySelector('#pc-arena-chance')?.dataset.champion === 'Raikou'");
     await evaluate("document.querySelector('#map-root [data-ch=\"15\"]').click()");
     await wait("document.querySelector('.ch-det:not(.det-out) #pc-arena-chance')?.dataset.champion === 'Hector'");
-    console.log('Firefox passed: extension, optimizer, native apply, PC selection/drag, roaming chance and gym fallback.');
+    await evaluate("document.querySelector('#pc-chapter-preview summary').click()");
+    assert.equal(await evaluate("document.querySelectorAll('#pc-chapter-preview .pc-preview-trainer').length"), 1);
+    await evaluate("document.querySelector('#pc-chapter-preview .pc-preview-trainer').focus()");
+    await wait("document.querySelector('.pc-trainer-tooltip:not([hidden])')?.innerText.includes('Hector')");
+    await evaluate("document.querySelector('#map-root [data-ch=\"L\"]').click()");
+    await wait("document.querySelectorAll('.lg-mem > pc-ui-root').length === 5");
+    assert.equal(await evaluate("document.querySelector('.lg-who b').textContent"), '???');
+    const rowPoint = await evaluate("(() => {const r=document.querySelector('.lg-mem').getBoundingClientRect();return {x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2)}})()");
+    await command('input.performActions', {context, actions:[{type:'pointer',id:'mouse',parameters:{pointerType:'mouse'},actions:[
+      {type:'pointerMove',x:rowPoint.x,y:rowPoint.y,duration:100}]}]});
+    await wait("document.querySelector('.pc-trainer-tooltip:not([hidden])')?.innerText.includes('Clément')");
+    assert.equal(await evaluate("document.querySelectorAll('.pc-trainer-tooltip:not([hidden]) .pc-preview-team > li').length"), 6);
+    await evaluate("document.querySelector('.lg-mem').focus()");
+    await wait("document.querySelector('.pc-trainer-tooltip:not([hidden])')?.innerText.includes('Clément')");
+    await evaluate("document.querySelector('.lg-mem').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))");
+    await wait("!document.querySelector('.pc-trainer-tooltip:not([hidden])')");
+    console.log('Firefox passed: extension, optimizer, native apply, PC selection/drag, roaming chance, champion cards, undiscovered League team hover and keyboard.');
   } finally {
     if (command && socket?.readyState === WebSocket.OPEN) await command('browser.close').catch(() => {});
     socket?.close();

@@ -124,46 +124,45 @@ l’absence d’écriture dans la sauvegarde. Les captures
 `artifacts/friend-dex-light.png`, ainsi que `artifacts/friend-card-pokedex.png`.
 La réponse avec un vrai compte reste à vérifier.
 
-## Aperçu des dresseurs
+## Équipes des champions et de la Ligue
 
-Dans **Progression**, sélectionner un chapitre puis déplier **Dresseurs et équipes**.
-La liste montre les dresseurs de route (regroupés par lieu, avec leur nombre),
-les assistants d’arène, les dresseurs nommés et les champions dans l’ordre du parcours.
-Survoler un dresseur ou lui donner le focus au clavier pour ouvrir son équipe ;
+Dans **Progression**, sélectionner un chapitre puis déplier **Champions d’arène**.
+Seuls les champions d’arène apparaissent, avec le même style que les cartes de la
+Ligue : portrait, nom, type, niveaux conseillés et plafond. Les dresseurs de route,
+les assistants et les autres adversaires du parcours sont exclus.
+Survoler une carte ou lui donner le focus au clavier pour afficher son équipe ;
 sur mobile, toucher sa ligne. Échap, un second toucher ou un toucher extérieur ferme
-l’infobulle. Les longues listes de Pokémon peuvent défiler, y compris au clavier.
+l’infobulle. Les équipes conservent leurs niveaux, leur ordre et leurs doublons.
 
-Les équipes fixes affichent leurs Pokémon et niveaux exacts, doublons conservés.
-Pour les combats aléatoires, l’infobulle affiche les Pokémon possibles, leurs plages
-de niveaux et le nombre de Pokémon par combat. Les possibilités couvrent les phases
-du jour, les météos du lieu et les évolutions natives ; elles ne prédisent pas le
-prochain tirage ni ses probabilités. Les portraits de ces lignes illustrent des classes
-possibles, pas des dresseurs déjà sélectionnés.
-Les chapitres verrouillés et la fiche groupée de la Ligue n’affichent pas cet aperçu.
-Aucune action ne modifie la sauvegarde.
+Dans la fiche de la **Ligue**, le survol des cartes natives affiche aussi les équipes,
+y compris quand le nom du dresseur est encore « ??? ». Cela ne découvre pas le
+dresseur et ne modifie pas la sauvegarde. L’aperçu des champions n’apparaît pas
+sur les chapitres verrouillés ; les équipes de la Ligue restent consultables.
 
-Les données d’aperçu sont indépendantes du moteur de simulation : elles viennent
-du bundle officiel `app.c0081498f2.js` consulté le 16 novembre 2026.
-Un avertissement apparaît si le jeu utilise un autre bundle.
-Pour actualiser ces données depuis un bundle original téléchargé :
+Les données viennent du bundle officiel `app.c0081498f2.js` consulté le 16 novembre
+2026. Une différence de version affiche un avertissement dans l’infobulle, sans
+bloquer l’équipe. Pour actualiser ces données depuis le bundle original téléchargé :
 
 ```sh
 node tools/build_chapter_preview.cjs /chemin/app.<hash>.js
 GAME_PREVIEW_BUNDLE=/chemin/app.<hash>.js npm run test:preview
 ```
 
-Le générateur utilise les fonctions natives de rencontres, d’assistants d’arène,
-d’évolution et de calcul des niveaux dans un environnement isolé, pendant la construction. L’extension ne télécharge ni n’exécute de code du
-jeu à l’exécution. Pour vérifier les interactions et l’affichage sur le site actuel :
+Le générateur utilise les compositions et niveaux natifs dans un environnement
+isolé pendant la construction. L’extension ne télécharge ni n’exécute de code du
+jeu à l’exécution. Pour vérifier les interactions sur la copie locale du jeu :
 
 ```sh
-PLAYWRIGHT_MODULE=/chemin/node_modules/playwright node tests/chapter-preview.browser.cjs
+GAME_URL=http://127.0.0.1:8080 PLAYWRIGHT_MODULE=/chemin/node_modules/playwright node tests/chapter-preview.browser.cjs
+GAME_DIR=artifacts/game node tests/firefox.test.cjs
 ```
 
-Ce test utilise un profil temporaire et une sauvegarde synthétique. Il vérifie
-les chapitres verrouillés, la navigation, le survol, le défilement au clavier,
-les thèmes clair/sombre, le toucher mobile et l’absence d’écriture par l’aperçu ; les captures de bureau
-1920 × 1080 sont enregistrées dans `artifacts/`.
+Ces tests chargent l’extension dans des profils temporaires avec des sauvegardes
+de test. Ils vérifient les cartes des champions, les équipes de la Ligue non
+découvertes, le survol et le clavier. Chrome vérifie aussi le toucher et les limites
+d’affichage sur mobile, ainsi que l’avertissement de version. Les captures de bureau
+1920 × 1080 sont enregistrées dans `artifacts/champions-chrome.png` et
+`artifacts/league-chrome.png`.
 
 ## XP/h des chapitres
 

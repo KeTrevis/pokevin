@@ -2,6 +2,11 @@
 
 - L’extension doit rester compatible avec Firefox et Google Chrome. Toute modification doit préserver le fonctionnement sur les deux navigateurs.
 
+# Releases
+
+- Ne créer ni publier de release sans demande explicite de l’utilisateur.
+- À chaque release, rédiger un changelog non technique dans sa description, centré sur les nouveautés et changements visibles pour les joueurs, sans jargon ni détails d’implémentation.
+
 # Tests avec le jeu réel
 
 - Au début de chaque session de travail, récupérer depuis https://pokecatch-online.netlify.app/# le frontend actuellement servi et son moteur, en suivant le `boot.js` et le CDN référencés. Ne pas supposer que la copie locale d’une session précédente est à jour.

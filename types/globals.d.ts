@@ -18,5 +18,5 @@ declare var TeamOptimizer: {
 };
 declare var PokeCatchTeams: { apply(team: import('./domain').TeamMon[], chapter: number | 'L'): Promise<void>; applyEncounter(team: import('./domain').TeamMon[], id: string): Promise<void> };
 declare var PokeCatchUI: import('./domain').UI;
-declare var PokeCatchChapterData: { bundle: string; chapters: Array<{ trainers: import('./domain').TrainerPreview[] }> };
+declare var PokeCatchChapterData: { bundle: string; chapters: Array<{ region: string; league: boolean; trainers: import('./domain').TrainerPreview[] }> };
 declare function importScripts(...urls: string[]): void;

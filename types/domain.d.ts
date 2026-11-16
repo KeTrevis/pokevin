@@ -200,13 +200,11 @@ export interface Simulator {
   interval(wins: number, runs: number): number[];
 }
 
-export interface TrainerPreviewBase {
-  key: string; name: string; location: string; count?: number;
-  sprite?: string; boss?: number;
-  team: Array<{ id: number; name: string; level?: number; min?: number; max?: number }>;
+export interface TrainerPreview {
+  key: string; name: string; location: string; sprite: string;
+  type: string; typeName: string; color: string; min: number; max: number; cap: number;
+  team: Array<{ id: number; name: string; level: number }>;
 }
-
-export type TrainerPreview = TrainerPreviewBase & ({ random: true; size: [number, number]; classes: Array<{ name: string; sprite: string }> } | { random?: false });
 
 export interface BadgeProps {
   id: string; label: string; icon?: string; value?: string;
@@ -217,13 +215,15 @@ export interface AdvisorProps {
   id: string; advice: Advice; versionMismatch: boolean;
   onSearch(): void; onCancel(): void; onApply(): void;
 }
-export interface PreviewProps { id: string; trainers: TrainerPreview[]; versionMismatch: boolean }
+export interface PreviewProps { id: string; trainers: TrainerPreview[]; versionMismatch: boolean; levelTone: string }
 export interface UI {
   versionWarning: string;
   mountBadge(container: Element, props: BadgeProps): HTMLElement;
   updateBadge(element: Element, patch: Partial<BadgeProps>): void;
   mountAdvisor(after: Element, props: AdvisorProps): HTMLElement;
   updateAdvisor(element: Element, props: AdvisorProps): void;
+  mountLeagueTooltip(anchor: HTMLElement, trainer: TrainerPreview, versionMismatch: boolean): HTMLElement;
+  updateLeagueTooltip(element: Element, patch: {trainer: TrainerPreview; versionMismatch: boolean}): void;
   mountPreview(after: Element, props: PreviewProps): HTMLDetailsElement;
   updatePreview(element: Element, props: PreviewProps): void;
   disposeDetached(nodes: NodeList): void;
