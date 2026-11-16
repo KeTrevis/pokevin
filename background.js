@@ -4,6 +4,7 @@ if (typeof importScripts === 'function') importScripts('engine/core.js', 'simula
 
 const versionReady = fetch(chrome.runtime.getURL('engine/version.json')).then(response => response.json());
 const RUNS = 100;
+let lastKeepAlive = -Infinity;
 
 chrome.runtime.onMessage.addListener((message, _sender, respond) => {
   if (message?.type === 'friend-pokedex-species') {
@@ -73,6 +74,11 @@ chrome.runtime.onConnect.addListener(port => {
       const batch = () => {
         if (job !== current) return;
         try {
+          // Firefox does not reset its event-page idle timer for port messages.
+          if (performance.now() - lastKeepAlive >= 20000) {
+            lastKeepAlive = performance.now();
+            chrome.runtime.getPlatformInfo(() => { void chrome.runtime.lastError; });
+          }
           const deadline = performance.now() + 30;
           let step;
           do { step = iterator.next(); }
