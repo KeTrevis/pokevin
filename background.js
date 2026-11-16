@@ -62,7 +62,7 @@ chrome.runtime.onConnect.addListener(port => {
       }
       const optimizing = message.type === 'optimize' || message.type === 'encounter-optimize';
       if (special) {
-        if (optimizing && !/^(zone|event|story):/.test(message.encounterId)) throw new Error('Cette rencontre utilise une équipe imposée par le jeu.');
+        if (optimizing && !/^(zone|event|story|league):/.test(message.encounterId)) throw new Error('Cette rencontre utilise une équipe imposée par le jeu.');
         current.iterator = optimizing ? TeamOptimizer.search(message.save, message.encounterId) :
           estimate(EncounterSimulator.prepare(message.save, message.encounterId));
       } else if (xp) current.iterator = ChapterXP.estimate(message.save, message.chapter);

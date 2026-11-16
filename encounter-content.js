@@ -162,6 +162,7 @@
     current.advice = { ...current.advice, status: 'applying' }; render();
     try {
       if (current.selected.startsWith('story:')) await PokeCatchTeams.apply(proposal, Number(current.selected.split(':')[1]));
+      else if (current.selected.startsWith('league:')) await PokeCatchTeams.apply(proposal, 'L');
       else await PokeCatchTeams.applyEncounter(proposal, current.selected);
       current.advice = { ...current.advice, status: 'result', applied: true };
       current.started = false; current.result = undefined; current.save = undefined;

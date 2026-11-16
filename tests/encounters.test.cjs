@@ -122,6 +122,65 @@ test('the full League ends only after the final chapter and counts the first def
   assert.ok(lostTrace.some(event => event.type === 'defeat' || event.type === 'skip'));
 });
 
+test('League losses are ranked by completed chapters and damage in the current battle', () => {
+  const ctx = simulator(), e = ctx.PokeCatchEngine, sim = ctx.EncounterSimulator;
+  const prepared = sim.prepare(fixture(ctx, 4), 'league:kanto', NOW);
+  let action = 0;
+  e.Adventure.step = () => {
+    action++;
+    const enemy = e.Game.makeMon(91, 50, { shiny: false });
+    enemy.hp = action === 1 ? 1 : e.Game.maxHp(enemy) / 2;
+    e.Game.S.adv.battle = { enemies: [enemy] };
+    if (action === 1) return [];
+    if (action === 2) return [{ type: 'chapterEnd', chapter: 9 }];
+    return [{ type: 'defeat' }];
+  };
+  const result = sim.fight(prepared, null, 1);
+  assert.equal(result.won, false);
+  assert.equal(result.progress, 1.5 / 5);
+});
+
+test('League candidates cover every leader in each region', () => {
+  const ctx = simulator(), sim = ctx.EncounterSimulator, e = ctx.PokeCatchEngine;
+  for (const chapter of [4, 17, 30, 48]) {
+    const save = fixture(ctx, chapter), region = e.STORY.regionOf(chapter).key;
+    const p = sim.prepare(save, `league:${region}`, NOW);
+    const expected = e.STORY.leagueOf(p.state.adv.chapter).flatMap(ch =>
+      e.STORY.CHAPTERS[ch].steps.filter(step => step.kind === 'gym').flatMap(step => e.STORY.gymTeam(ch, step)));
+    assert.deepEqual(Array.from(p.champion.enemies, mon => [mon.id, mon.level]), JSON.parse(JSON.stringify(expected)));
+    assert.ok(p.champion.enemies.length > 20);
+  }
+});
+
+test('League optimizer improves a losing team on the entire circuit without mutating the save', () => {
+  const ctx = simulator(), e = ctx.PokeCatchEngine, save = fixture(ctx, 4);
+  save.mons = [129, 76, 112, 143].map((id, i) => ({
+    ...e.Game.makeMon(id, i ? 100 : 1, { shiny: true }), rank: 5, uid: `league-${i}`,
+  }));
+  save.team = [save.mons[0].uid];
+  const before = JSON.stringify(save), random = vm.runInContext('Math.random', ctx);
+  const search = ctx.TeamOptimizer.search(save, 'league:kanto', NOW);
+  assert.equal(search.next().done, false);
+  assert.equal(search.return().done, true);
+  assert.equal(e.Game.S, undefined);
+  const job = ctx.TeamOptimizer.search(save, 'league:kanto', NOW);
+  let step;
+  do { step = job.next(); } while (!step.done);
+  const result = step.value;
+  assert.equal(result.champion, 'Ligue entière');
+  assert.equal(result.currentProbability, 0);
+  assert.ok(result.probability > result.currentProbability);
+  assert.equal(result.runs, 100);
+  assert.ok(result.team.every(mon => save.mons.some(owned => owned.uid === mon.uid)));
+  assert.equal(new Set(result.team.map(mon => mon.uid)).size, result.team.length);
+  const prepared = ctx.EncounterSimulator.prepare(save, 'league:kanto', NOW, result.team.map(mon => mon.uid));
+  const trace = [];
+  assert.equal(ctx.EncounterSimulator.fight(prepared, trace, 3).won, true);
+  assert.ok(trace.some(event => event.type === 'chapterEnd' && event.chapter === 13));
+  assert.equal(JSON.stringify(save), before);
+  assert.equal(vm.runInContext('Math.random', ctx), random);
+});
+
 test('raid duels include the saved allies, retain their statistics and leave the raid unchanged', () => {
   const ctx = simulator(), e = ctx.PokeCatchEngine, sim = ctx.EncounterSimulator, save = fixture(ctx, 4);
   save.adv.event = { raid: true, reg: 'kanto', date: e.Raids.dateKey(NOW), id: 25, seq: 'R:kanto', level: 100, back: 4, loops: 0 };

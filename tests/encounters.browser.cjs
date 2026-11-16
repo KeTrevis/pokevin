@@ -104,7 +104,24 @@ async function main() {
     assert.ok((await picker.locator('option').allTextContents()).includes('Olga'));
     await picker.selectOption({ label: 'Olga' }); await ready();
     await picker.selectOption({ label: 'Ligue entière' }); await ready();
-    assert.equal(await page.locator('#pc-encounter-advisor').count(), 0);
+    const leagueSave = await page.evaluate(() => {
+      NativeTest.Game.holdSave(true);
+      return localStorage.getItem('gachamon-save-v1');
+    });
+    await page.getByRole('button', { name: '✨ Proposer une équipe', exact: true }).click();
+    await page.getByRole('button', { name: 'Annuler', exact: true }).click();
+    await page.locator('#pc-encounter-advisor[data-status="idle"]').waitFor();
+    await page.getByRole('button', { name: '✨ Proposer une équipe', exact: true }).click();
+    await page.locator('#pc-encounter-advisor[data-status="result"]').waitFor({ timeout: 120000 });
+    assert.equal(await page.evaluate(() => localStorage.getItem('gachamon-save-v1')), leagueSave);
+    const leagueTeam = await page.locator('#pc-encounter-advisor li').evaluateAll(items => items.map(item => item.dataset.uid));
+    await screenshot('league-team.png');
+    await page.evaluate(() => NativeTest.Game.holdSave(false));
+    await page.getByRole('button', { name: 'Appliquer cette équipe', exact: true }).click();
+    await page.getByRole('button', { name: 'Équipe appliquée', exact: true }).waitFor({ timeout: 30000 });
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('gachamon-save-v1')).team), leagueTeam);
+    assert.equal(await picker.inputValue(), 'league:kanto');
+    await ready();
     await page.evaluate(() => { NativeTest.Game.S.adv.badges.push('Maître Hoenn'); NativeTest.Game.save(); NativeTest.App.show('tower'); });
     await ready();
     assert.match(await page.locator('#pc-encounter-coach').innerText(), /Étage 1/);

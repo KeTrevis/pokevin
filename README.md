@@ -232,11 +232,13 @@ Hors circuit de Ligue, ces résultats mesurent un **duel direct**, sans le traje
 Une capture ratée après le K.O. du boss reste une victoire au combat. Aucun pourcentage
 n’est proposé pour le bouclier du boss mondial : son état et son issue dépendent du serveur.
 
-La recherche d’équipe est aussi disponible pour les zones, événements et duels du chapitre.
+La recherche d’équipe est aussi disponible pour les zones, événements, duels du chapitre et la Ligue entière.
+Pour la Ligue, chaque composition est évaluée sur le circuit complet, jusqu’au dernier champion.
+La proposition s’applique à l’équipe d’aventure via le PC.
 Appliquer une proposition de zone ou d’événement utilise le sélecteur natif de cette équipe,
 avec restauration de la composition précédente en cas d’échec. L’équipe d’aventure reste
 séparée. Les simulations ne modifient pas la sauvegarde ; seule cette action explicite
-change la composition dédiée. Les raids, la Tour et le circuit complet de Ligue affichent
+change la composition dédiée. Les raids et la Tour affichent
 l’estimation sans proposer de réorganiser leurs équipes.
 
 Les résultats sont conservés pendant la visite de la fiche. Changer de rencontre,

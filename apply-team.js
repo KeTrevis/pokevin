@@ -79,7 +79,7 @@
     if (!same(team(), ids)) throw new Error('La composition n’a pas pu être appliquée.');
   }
 
-  /** @param {import("./types/domain").TeamMon[]} proposal @param {number} chapter */
+  /** @param {import("./types/domain").TeamMon[]} proposal @param {number | 'L'} chapter */
   async function apply(proposal, chapter) {
     const before = readSave();
     const ids = proposal.map(mon => mon.uid);

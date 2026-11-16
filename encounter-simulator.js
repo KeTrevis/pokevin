@@ -93,7 +93,10 @@
     return Game.sandbox(s, () => {
       if (kind === 'league') {
         Adventure.buildChapter(s.adv.chapter);
-        return { ...prepared, encounterId: id, champion: { id, name, chapter: s.adv.chapter, badge: '', region: '', chapterName: '', enemies: [] } };
+        const enemies = (STORY.leagueOf(s.adv.chapter) || []).flatMap(chapter =>
+          STORY.CHAPTERS[chapter].steps.filter(step => step.kind === 'gym').flatMap(step =>
+            STORY.gymTeam(chapter, step).map(([id, level]) => ({ id, level, name: Game.DEX[id].name }))));
+        return { ...prepared, encounterId: id, champion: { id, name, chapter: s.adv.chapter, badge: '', region: '', chapterName: '', enemies } };
       }
       /** @type {import('./types/domain').BattleNode | undefined} */
       let node;
@@ -184,7 +187,9 @@
       GymSimulator.restoreRegions(state);
       return Game.sandbox(state, () => {
         const circuit = prepared.encounterId?.startsWith('league:');
-        const lastChapter = circuit ? STORY.leagueOf(state.adv.chapter)?.at(-1) : undefined;
+        const chapters = circuit ? STORY.leagueOf(state.adv.chapter) : null;
+        const lastChapter = chapters?.at(-1);
+        let completed = 0;
         if (state.adv.tower) {
           const run = state.tower?.run;
           Tower.finish();
@@ -195,12 +200,16 @@
         let enemies;
         /** @param {boolean} won @param {number} actions */
         const outcome = (won, actions) => ({ won, actions, survivors: won ? Game.teamMons().filter(mon => Game.curHp(mon) > 0).length : 0,
-          progress: won ? 1 : enemies?.length ? enemies.reduce((sum, mon) => sum + 1 - Game.curHp(mon) / Game.maxHp(mon), 0) / enemies.length : 0 });
+          progress: won ? 1 : (completed + (enemies?.length ? enemies.reduce((sum, mon) => sum + 1 - Game.curHp(mon) / Game.maxHp(mon), 0) / enemies.length : 0)) / (chapters?.length || 1) });
         for (let actions = 1; actions <= 20000; actions++) {
           // Advance nominal time for fleeing event legends, without moving the frozen wall clock.
           if (state.adv.event) Adventure.addTime(engine.CONFIG.ACTION_MS);
           const events = Adventure.step();
-          enemies ||= state.adv.battle?.enemies;
+          if (circuit) {
+            enemies = state.adv.battle?.enemies || enemies;
+            completed += events.filter(event => event.type === 'chapterEnd').length;
+            if (events.some(event => event.type === 'chapterEnd')) enemies = undefined;
+          } else enemies ||= state.adv.battle?.enemies;
           trace?.push(...clone(events));
           GymSimulator.applyEvolutions(events);
           if (circuit ? events.some(event => event.type === 'chapterEnd' && event.chapter === lastChapter) :

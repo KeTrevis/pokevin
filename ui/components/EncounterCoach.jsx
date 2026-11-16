@@ -24,7 +24,7 @@ export function EncounterCoach({ id, choices, selected, result, advice, versionM
         tone={probability === null ? 'neutral' : probability >= .65 ? 'positive' : probability < .4 ? 'negative' : 'caution'}
         tooltip={circuit ? (error || 'Circuit complet avec les combats intermédiaires et les soins prévus par le jeu. Équipe soignée au départ.') + (versionMismatch ? ` ${VERSION_WARNING}` : '') : tower ? (error || `${name || 'Prochain étage'} · Pokémon de la run, PV et statuts conservés.`) + (versionMismatch ? ` ${VERSION_WARNING}` : '') : tooltip} />
     </div>
-    {!tower && !circuit && !selected.startsWith('raid:') && <TeamAdvisor id="pc-encounter-advisor" advice={advice} versionMismatch={versionMismatch}
+    {!tower && !selected.startsWith('raid:') && <TeamAdvisor id="pc-encounter-advisor" advice={advice} versionMismatch={versionMismatch}
       onSearch={onSearch} onCancel={onCancel} onApply={onApply} />}
   </Container>;
 }

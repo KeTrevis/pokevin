@@ -11,7 +11,7 @@
 
   /** @param {import("./types/domain").Save} save @param {string} championId @param {number} [now] @returns {Generator<import("./types/domain").OptimizationProgress, import("./types/domain").OptimizationResult, unknown>} */
   function* search(save, championId, now = Date.now()) {
-    const special = /^(zone|event|story):/.test(championId);
+    const special = /^(zone|event|story|league):/.test(championId);
     const sim = special ? EncounterSimulator : GymSimulator;
     const roster = special ? EncounterSimulator.available(save, championId) : GymSimulator.available(save);
     if (!roster.length) throw new Error('Aucun Pokémon disponible dans ton équipe et ton PC.');
