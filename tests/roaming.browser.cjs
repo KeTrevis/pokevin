@@ -26,7 +26,7 @@ async function main() {
     const open = async (state, chapter = 14) => {
       state.lastTick = Date.now();
       await page.goto(new URL("seed.html", process.env.GAME_URL || "http://127.0.0.1:8080/").href);
-      await page.evaluate(state => { localStorage.setItem('gachamon-save-v1', JSON.stringify(state)); localStorage.setItem('pokecatch.lang', 'fr'); }, state);
+      await page.evaluate(state => { state.lastTick = Date.now(); localStorage.setItem('gachamon-save-v1', JSON.stringify(state)); localStorage.setItem('pokecatch.lang', 'fr'); localStorage.setItem('pokecatch-guide-seen', JSON.stringify(['adv', 'catch', 'team', 'league'])); }, state);
       await page.goto(process.env.GAME_URL || "http://127.0.0.1:8080/");
       await page.locator('.ti-go').click();
       await page.locator('.title-fx').waitFor({ state: 'detached' });

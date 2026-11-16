@@ -1,7 +1,7 @@
 # Pokevin
 
-Extension Chrome / Edge / Firefox, version 0.4.5. Compatible avec le build du jeu
-`b095b65025` (v0.4.72), sans natures de Pokémon.
+Extension Chrome / Edge / Firefox, version 0.4.6. Moteur embarqué synchronisé avec
+le build du jeu `b05c8cc201` (bundle `app.c0081498f2.js`).
 
 ## Installation
 
@@ -143,7 +143,7 @@ Les chapitres verrouillés et la fiche groupée de la Ligue n’affichent pas ce
 Aucune action ne modifie la sauvegarde.
 
 Les données d’aperçu sont indépendantes du moteur de simulation : elles viennent
-du bundle officiel `app.c4d608a3a9.js` consulté le 4 novembre 2026.
+du bundle officiel `app.c0081498f2.js` consulté le 16 novembre 2026.
 Un avertissement apparaît si le jeu utilise un autre bundle.
 Pour actualiser ces données depuis un bundle original téléchargé :
 
@@ -248,7 +248,7 @@ visite. Les chapitres sans champion d’arène peuvent afficher les duels des re
 
 ## Rencontres spéciales
 
-Le moteur embarqué vient du bundle officiel `app.cf8c0470ea.js` (build `c44d69d5e4`),
+Le moteur embarqué vient du bundle officiel `app.c0081498f2.js` (build `b05c8cc201`),
 récupéré le 4 novembre 2026. Une différence de version reste un simple avertissement.
 
 - **Zones légendaires** : dans Progression, ouvrir la fiche du légendaire, par exemple
@@ -287,7 +287,7 @@ Les résultats sont conservés pendant la visite de la fiche. Changer de rencont
 fermer puis rouvrir la fiche, ou appliquer une proposition lance une nouvelle estimation.
 
 ```sh
-GAME_BUNDLE=/chemin/app.cf8c0470ea.js node --test tests/simulator.test.cjs tests/optimizer.test.cjs tests/chapter-xp.test.cjs tests/encounters.test.cjs
+GAME_BUNDLE=/chemin/app.c0081498f2.js node --test tests/simulator.test.cjs tests/optimizer.test.cjs tests/chapter-xp.test.cjs tests/encounters.test.cjs
 PLAYWRIGHT_MODULE=/chemin/node_modules/playwright GAME_DIR=/chemin/game node tests/encounters.browser.cjs
 ```
 
@@ -359,7 +359,7 @@ le ZIP existant. Aucun secret à configurer.
 Depuis la racine du dépôt, avec Python 3 et Node 18 ou ultérieur :
 
 ```powershell
-python tools/build_extension_engine.py /chemin/app.cf8c0470ea.js --build c44d69d5e4
+python tools/build_extension_engine.py /chemin/app.c0081498f2.js --build b05c8cc201
 node --test tests/simulator.test.cjs tests/optimizer.test.cjs
 node tests/firefox.test.cjs
 ```

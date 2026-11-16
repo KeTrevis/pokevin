@@ -34,7 +34,7 @@ test('XP/h measures complete routes, uses effective speed, and preserves the sav
   const save = fixture(), before = JSON.stringify(save);
   const step = Adventure.step;
   let actions = 0, xp = 0, heals = 0, wild = 0, trainers = 0;
-  Adventure.step = () => {
+  const measuredStep = () => {
     actions++;
     const events = step();
     for (const event of events) {
@@ -46,6 +46,7 @@ test('XP/h measures complete routes, uses effective speed, and preserves the sav
     return events;
   };
   let normal;
+  Adventure.step = measuredStep;
   try { normal = estimate(save); } finally { Adventure.step = step; }
   assert.equal(JSON.stringify(save), before);
   assert.equal(normal.runs, 20);
@@ -56,10 +57,15 @@ test('XP/h measures complete routes, uses effective speed, and preserves the sav
   assert.ok(heals > 0 && wild > 0 && trainers > 0 && xp > 0);
   for (const [setting, multiplier] of [[2, 2], [4, 2.5]]) {
     save.adv.speed = setting;
-    const faster = estimate(save);
+    actions = 0; xp = 0;
+    Adventure.step = measuredStep;
+    let faster;
+    try { faster = estimate(save); } finally { Adventure.step = step; }
     assert.equal(faster.speed, multiplier);
-    assert.equal(faster.xp, normal.xp);
-    assert.ok(Math.abs(faster.xpPerHour / normal.xpPerHour - multiplier) < 1e-8);
+    // Native speed wear can change combat outcomes, so measure each run's own XP.
+    assert.equal(faster.xp, xp);
+    assert.ok(Math.abs(faster.elapsedMs - actions * CONFIG.ACTION_MS / multiplier) < 1e-6);
+    assert.equal(faster.xpPerHour, xp * 3600000 / faster.elapsedMs);
   }
   assert.equal(Game.S, undefined);
 });

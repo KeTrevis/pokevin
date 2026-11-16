@@ -39,6 +39,7 @@ async function main() {
     await page.evaluate(state => {
       localStorage.setItem('gachamon-save-v1', JSON.stringify(state));
       localStorage.setItem('pokecatch.lang', 'fr');
+      localStorage.setItem('pokecatch-guide-seen', JSON.stringify(['adv', 'catch', 'team', 'league']));
     }, packed);
     await page.reload();
     await page.locator('.title-fx .ti-go').click();
@@ -53,7 +54,8 @@ async function main() {
     await page.waitForFunction(() => document.querySelector('#pc-chapter-xp b')?.textContent.startsWith('≈'));
     await page.waitForFunction(() => /%/.test(document.querySelector('#pc-arena-chance')?.textContent));
     await xp.focus();
-    await page.getByRole('tooltip').filter({ hasText: 'Version du jeu différente' }).waitFor();
+    await page.getByRole('tooltip').filter({ hasText: 'Vitesse effective' }).waitFor();
+    assert.doesNotMatch(await page.getByRole('tooltip').filter({ hasText: 'Vitesse effective' }).innerText(), /Version du jeu différente/);
     assert.doesNotMatch(await xp.innerText(), /Indisponible/);
     const before = wire.unpack(await page.evaluate(() => JSON.parse(localStorage.getItem('gachamon-save-v1'))));
     await page.getByRole('button', { name: /Proposer une équipe/ }).click();
@@ -70,7 +72,8 @@ async function main() {
     assert.deepEqual(decoded.team, after.team);
     await page.waitForFunction(() => document.querySelector('#pc-chapter-xp b')?.textContent.startsWith('≈'));
     await xp.focus();
-    await page.getByRole('tooltip').filter({ hasText: 'Version du jeu différente' }).waitFor();
+    await page.getByRole('tooltip').filter({ hasText: 'Vitesse effective' }).waitFor();
+    assert.doesNotMatch(await page.getByRole('tooltip').filter({ hasText: 'Vitesse effective' }).innerText(), /Version du jeu différente/);
     const screenshot = path.join(ROOT, 'artifacts/current-game-save-fixed.png');
     await page.evaluate(() => Promise.all([...document.images].filter(image => {
       const rect = image.getBoundingClientRect();
@@ -83,7 +86,7 @@ async function main() {
     const png = fs.readFileSync(screenshot);
     assert.equal(png.readUInt32BE(16), 1920);
     assert.equal(png.readUInt32BE(20), 1080);
-    console.log('Current frontend: compact save, XP/h, gym chance, optimization, native team application passed.');
+    console.log('Current frontend: synchronized engine, compact save, XP/h, gym chance, optimization and native team application passed.');
     console.log('Screenshot:', screenshot);
   } finally {
     await context?.close();

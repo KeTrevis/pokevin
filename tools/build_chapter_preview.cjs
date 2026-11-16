@@ -5,8 +5,8 @@ const vm = require('node:vm');
 const crypto = require('node:crypto');
 
 function loadGame(source) {
-  const end = source.indexOf(',t.Underground=');
-  const anchor = 't.Adventure={ensure:de';
+  const end = source.indexOf(',a.Underground=');
+  const anchor = 'a.Adventure={ensure:v';
   if (end < 0 || !source.includes(anchor)) throw new Error('Sections du jeu introuvables.');
   const context = { console, performance, Date, structuredClone, AbortController,
     setTimeout: () => 0, clearTimeout() {}, setInterval: () => 0,
@@ -21,8 +21,8 @@ function loadGame(source) {
   };
   // Expose the native encounter helpers only inside this offline build sandbox.
   const core = source.slice(0, end).replace(anchor,
-    't.Adventure={previewPool:z,previewGymTrainers:pa,previewEvolutions:ut,previewEvolve:nt,ensure:de');
-  vm.runInNewContext(core + ';globalThis.Reference=t;})();', context, { timeout: 5000 });
+    'a.Adventure={previewPool:b,previewGymTrainers:it,previewEvolutions:be,previewEvolve:Fe,ensure:v');
+  vm.runInNewContext(core + ';globalThis.Reference=a;})();', context, { timeout: 5000 });
   return context.Reference;
 }
 
@@ -67,7 +67,7 @@ function extract(source) {
         }
       }
       trainers.push({ key, name, location: node.name, count, random: true,
-        classes: [...classes.values()], size: gym ? [1, 1] :
+        classes: [...classes.values()], size: gym ? [1, 1] : node.tsize ||
           [1, 1 + Math.min(2, Math.floor((index - STORY.firstChapterOf(STORY.regionOf(index).key)) / 2) + 1)],
         team: [...possible.values()].sort((a, b) => a.id - b.id) });
     };

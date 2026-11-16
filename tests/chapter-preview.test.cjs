@@ -5,8 +5,9 @@ require('../ui/chapter-data.js');
 const { chapters, bundle } = globalThis.PokeCatchChapterData;
 
 test('preview includes route trainers and gym assistants before the champion', () => {
-  assert.equal(bundle, 'app.c4d608a3a9.js');
-  assert.equal(chapters.length, 66);
+  assert.equal(bundle, require('../engine/version.json').bundle);
+  require('../engine/core.js');
+  assert.equal(chapters.length, PokeCatchEngine.STORY.CHAPTERS.length);
   const [route, assistant, champion] = chapters[0].trainers;
   assert.equal(route.location, 'Forêt de Jade');
   assert.equal(route.count, 2);

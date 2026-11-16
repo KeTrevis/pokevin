@@ -80,7 +80,7 @@ async function main() {
     };
     const origin = `http://127.0.0.1:${server.address().port}`;
     await navigate(origin + '/seed');
-    await evaluate(`(() => {localStorage.setItem('gachamon-save-v1',${JSON.stringify(JSON.stringify(save))});localStorage.setItem('pokecatch.lang','fr');return true;})()`);
+    await evaluate(`(() => {localStorage.setItem('gachamon-save-v1',${JSON.stringify(JSON.stringify(save))});localStorage.setItem('pokecatch.lang','fr');localStorage.setItem('pokecatch-guide-seen',JSON.stringify(['adv','catch','team','league']));return true;})()`);
     await navigate(origin + '/');
     await wait("!!document.querySelector('.title-fx .ti-go')");
     await evaluate("document.querySelector('.title-fx .ti-go').click()");

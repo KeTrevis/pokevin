@@ -208,7 +208,7 @@ test('special duels match native construction and combat, including seven legend
   const ctx = simulator(), ref = environment();
   const source = fs.readFileSync(sourcePath, 'utf8');
   // Independent reference retains the original preamble and every module through Roaming.
-  vm.runInContext(source.slice(0, source.indexOf(',t.Sfx=')) + ';globalThis.Reference=t;})();', ref);
+  vm.runInContext(require('./native-game.cjs').nativeCore(source, 'Sfx'), ref);
   await ref.Reference.Clock.ready();
   const r = ref.Reference, sim = ctx.EncounterSimulator;
   for (const id of [145, 144, 146, 150, 249, 383, 386]) {
@@ -223,6 +223,7 @@ test('special duels match native construction and combat, including seven legend
       const state = structuredClone(save);
       const originalEvents = [], actual = [];
       seeded(ref, seed); seeded(ctx, seed);
+      for (const region of r.STORY.REGIONS) if (region.key) region.open = save.travel.to.includes(region.key);
       r.Game.sandbox(state, () => {
         assert.equal(r.Adventure.startZone(id), true, `zone ${id}: ${r.LegendZones.state(r.LegendZones.get(id))}`);
         state.adv.node = state.adv.nodes.findIndex(node => node.type === 'static');
@@ -259,6 +260,7 @@ test('special duels match native construction and combat, including seven legend
     else id = sim.catalog().find(item => item.name === (kind === 'static' ? 'Ronflex' : 'Kimono Sayo')).id;
     seeded(ctx, 13); seeded(ref, 13);
     const prepared = sim.prepare(save, id, NOW), state = structuredClone(save);
+    for (const region of r.STORY.REGIONS) if (region.key) region.open = save.travel.to.includes(region.key);
     r.Game.sandbox(state, () => {
       if (kind === 'event') { assert.equal(r.Adventure.startEvent(1), true); state.adv.node = state.adv.nodes.findIndex(node => node.legend); }
       else if (kind === 'tower') assert.equal(r.Adventure.startTower(true), true);

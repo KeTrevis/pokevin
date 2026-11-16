@@ -38,24 +38,8 @@ async function original() {
     fetch: async () => ({ headers: { get: () => new Date(NOW).toUTCString() } }),
   });
   const source = fs.readFileSync(process.env.GAME_BUNDLE || path.join(ROOT, '../game/bundle', bundle), 'utf8');
-  const end = source.indexOf(',t.Underground=function()');
-  // Independent reference: original preamble + original core, with all module setup intact.
-  vm.runInContext(source.slice(0, end) + ';globalThis.Reference=t;})();', context);
+  vm.runInContext(require('./native-game.cjs').nativeCore(source), context);
   await context.Reference.Clock.ready();
-  const proposeStart = source.indexOf('function qn(L){const le=L&&m.getMon(L.uid)');
-  const proposeEnd = source.indexOf('function Bn(L,le)', proposeStart);
-  const evolveStart = source.indexOf('async function _n(L){const le=L.demo?');
-  const evolveEnd = source.indexOf('function tt(L,', evolveStart);
-  assert.ok(proposeStart >= 0 && proposeEnd > proposeStart && evolveStart >= 0 && evolveEnd > evolveStart);
-  // Exercise the real UI's evolution handlers too. Only graphics/toasts are stubbed.
-  vm.runInContext(`Reference.App={refresh(){}};Reference.UI={proposeEvolution:(function(){
-    const m=Reference.Game,t=Reference,Xa=new Set(),e=Reference._t,ie=String;
-    const Rn=()=>{},mt=()=>{},nt=()=>'';
-    const Ta=()=>{throw new Error('A player must choose this evolution');};
-    ${source.slice(proposeStart, proposeEnd)}
-    ${source.slice(evolveStart, evolveEnd)}
-    return qn;
-  })()};`, context);
   return context;
 }
 
@@ -202,7 +186,7 @@ test('interleaved game tabs restore their own regional progression', () => {
   assert.deepEqual(signature(after), signature(before));
 });
 
-test('a level-up evolution changes the next attacks, just like the original UI', async () => {
+test('a native level-up evolution changes the next attacks', async () => {
   const ctx = simulator(), ref = await original(), sim = ctx.GymSimulator, e = ctx.PokeCatchEngine;
   const save = fixture(ctx, 1, [2], 31);
   save.adv.unlocked = 5;
@@ -221,7 +205,7 @@ test('a level-up evolution changes the next attacks, just like the original UI',
     for (let step = 0; step < 20000; step++) {
       const events = r.Adventure.step();
       expected.push(...structuredClone(events));
-      for (const event of events) if (event.type === 'xp' && event.evolve) r.UI.proposeEvolution(event.evolve);
+      for (const event of events) if (event.type === 'xp' && event.evolve) r.Game.evolveMon(event.evolve.uid, event.evolve.to);
       if (events.some(event => event.type === 'victory' || event.type === 'defeat' || event.type === 'skip')) break;
     }
   });
