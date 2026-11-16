@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 require('../engine/core.js');
-require('../ui/chapter-data.js');
+require('../plugin/ui/chapter-data.js');
 const ROOT = path.resolve(__dirname, '..');
 
 async function main() {
@@ -21,7 +21,7 @@ async function main() {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'pokecatch-preview-'));
   const context = await chromium.launchPersistentContext(profile, {
     channel: 'chromium', headless: true, hasTouch: true, viewport: { width: 1920, height: 1080 },
-    args: [`--disable-extensions-except=${ROOT}`, `--load-extension=${ROOT}`],
+    args: [`--disable-extensions-except=${path.join(ROOT, 'dist/extension')}`, `--load-extension=${path.join(ROOT, 'dist/extension')}`],
   });
   try {
     const page = await context.newPage();

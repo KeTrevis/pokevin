@@ -41,7 +41,7 @@ async function main() {
   try {
     context = await chromium.launchPersistentContext(profile, { channel: 'chromium', headless: true,
       viewport: { width: 1920, height: 1080 },
-      args: [`--disable-extensions-except=${ROOT}`, `--load-extension=${ROOT}`] });
+      args: [`--disable-extensions-except=${path.join(ROOT, 'dist/extension')}`, `--load-extension=${path.join(ROOT, 'dist/extension')}`] });
     const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker');
     await worker.evaluate(() => {
       globalThis.requests = [];

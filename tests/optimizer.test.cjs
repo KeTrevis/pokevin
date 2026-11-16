@@ -1,8 +1,8 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 require('../engine/core.js');
-require('../simulator.js');
-require('../optimizer.js');
+require('../plugin/simulator.js');
+require('../plugin/optimizer.js');
 const { Game } = PokeCatchEngine;
 const NOW = Date.UTC(2026, 10, 3, 18);
 function fixture() {

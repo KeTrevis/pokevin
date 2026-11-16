@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const test = require('node:test');
-require('../ui/chapter-data.js');
+require('../plugin/ui/chapter-data.js');
 require('../engine/core.js');
 const { chapters, bundle } = globalThis.PokeCatchChapterData;
 

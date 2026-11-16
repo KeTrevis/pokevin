@@ -64,7 +64,7 @@ async function main() {
     });
     const session = await command('session.new', { capabilities: {} });
     console.log('Firefox:', session.capabilities.browserVersion);
-    await command('webExtension.install', { extensionData: { type: 'path', path: ROOT } });
+    await command('webExtension.install', { extensionData: { type: 'path', path: path.join(ROOT, 'dist/extension') } });
     const { context } = await command('browsingContext.create', { type: 'tab' });
     await command('browsingContext.setViewport', { context, viewport: {width:1920,height:1080} });
     const navigate = url => command('browsingContext.navigate', { context, url, wait: 'complete' });
@@ -102,7 +102,23 @@ async function main() {
       while (Date.now() < deadline) { if (await editorEvaluate(expression)) return; await pause(150); }
       throw new Error('Editor timeout: ' + expression);
     };
+    await editorWait("!document.querySelector('#new-script').disabled");
+    assert.equal(await editorEvaluate("document.querySelectorAll('.script-row').length"), 0);
+    await editorEvaluate("document.querySelector('#new-script').click()");
     await editorWait("!!document.querySelector('.monaco-editor textarea')");
+    await editorEvaluate("document.querySelector('#vim').click()");
+    assert.equal(await editorEvaluate("document.querySelector('#vim').getAttribute('aria-pressed')"), 'true');
+    await command('input.performActions', {context, actions:[{type:'key', id:'vim-insert', actions:
+      ['i', ' ', '\uE00C'].flatMap(value => [{type:'keyDown',value},{type:'keyUp',value}]),
+    }]});
+    await command('input.releaseActions', {context});
+    await wait("JSON.parse(localStorage.getItem('pokevin-scripts')).scripts[0].code === ' '");
+    await editorWait("document.querySelector('#vim-status').textContent.includes('NORMAL')");
+    await command('input.performActions', {context, actions:[{type:'key', id:'vim-undo', actions:[{type:'keyDown',value:'u'},{type:'keyUp',value:'u'}]}]});
+    await command('input.releaseActions', {context});
+    await wait("JSON.parse(localStorage.getItem('pokevin-scripts')).scripts[0].code === ''");
+    await editorEvaluate("document.querySelector('#vim').click()");
+    assert.equal(await editorEvaluate("document.querySelector('#vim').getAttribute('aria-pressed')"), 'false');
     await editorEvaluate("document.querySelector('#run').click()");
     await editorWait("document.querySelector('#status').textContent === 'Script exécuté.'");
     await editorEvaluate("document.querySelector('#run').click()");
@@ -167,6 +183,13 @@ async function main() {
     await editorWait("document.querySelector('#restart').hidden");
     await editorEvaluate("document.querySelector('#run').click()");
     await editorWait("document.querySelector('#run').dataset.icon === 'play'");
+    await editorEvaluate("document.querySelectorAll('.delete-script')[1].click()");
+    await editorWait("document.querySelector('#delete-dialog').open");
+    await editorEvaluate("document.querySelector('#delete-dialog button[value=cancel]').click()");
+    assert.equal(await editorEvaluate("document.querySelectorAll('.script-row').length"), 2);
+    await editorEvaluate("document.querySelectorAll('.delete-script')[1].click()");
+    await editorEvaluate("document.querySelector('#delete-dialog button[value=delete]').click()");
+    await editorWait("document.querySelectorAll('.script-row').length === 1");
     console.log('Firefox: restart indicator, navigation warning, highlighting, autocomplete and diagnostics passed.');
     await evaluate("(() => {const button = document.querySelector('#tabs [data-screen=adventure]');button.click();button.focus();})()");
     await wait("!document.querySelector('#screen-pokevin-scripts.active')");

@@ -20,3 +20,5 @@ declare var PokeCatchTeams: { apply(team: import('./domain').TeamMon[], chapter:
 declare var PokeCatchUI: import('./domain').UI;
 declare var PokeCatchChapterData: { bundle: string; chapters: Array<{ region: string; league: boolean; trainers: import('./domain').TrainerPreview[] }> };
 declare function importScripts(...urls: string[]): void;
+
+declare var PokevinBackground: () => void;

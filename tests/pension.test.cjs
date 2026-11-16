@@ -13,7 +13,7 @@ test('shows the native egg countdown and follows ticks, berries and redraws', ()
   });
   let rows = [row(egg), row(xp)];
   let refresh;
-  vm.runInNewContext(fs.readFileSync(require.resolve('../ui/pension.js'), 'utf8'), {
+  vm.runInNewContext(fs.readFileSync(require.resolve('../plugin/ui/pension.js'), 'utf8'), {
     document: { body: {}, querySelectorAll: () => rows },
     MutationObserver: class {
       constructor(callback) { refresh = callback; }

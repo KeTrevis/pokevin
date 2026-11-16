@@ -2,11 +2,11 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const fs = require('node:fs');
 const vm = require('node:vm');
-require('../save-reader.js');
+require('../plugin/save-reader.js');
 require('../engine/core.js');
-require('../simulator.js');
-require('../encounter-simulator.js');
-require('../chapter-xp.js');
+require('../plugin/simulator.js');
+require('../plugin/encounter-simulator.js');
+require('../plugin/chapter-xp.js');
 
 const uid = 'm1234567abcdef';
 const caughtAt = parseInt(uid.slice(0, 8), 36) + 15;

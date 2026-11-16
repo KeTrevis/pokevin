@@ -20,20 +20,22 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run test:dev
       - run: npm run build:extension
       - name: Set release version
         run: |
           node <<'NODE'
           const fs = require('node:fs');
-          const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+          const manifest = JSON.parse(fs.readFileSync('dist/extension/manifest.json', 'utf8'));
           const build = Number(process.env.GITHUB_RUN_NUMBER);
           if (!Number.isInteger(build) || build < 1 || build > 65535) throw new Error('Invalid extension build number');
           manifest.version = `${manifest.version.split('.').slice(0, 3).join('.')}.${build}`;
-          fs.writeFileSync('manifest.json', JSON.stringify(manifest, null, 2) + '\n');
+          fs.writeFileSync('dist/extension/manifest.json', JSON.stringify(manifest, null, 2) + '\n');
           fs.appendFileSync(process.env.GITHUB_ENV, `RELEASE_TAG=v${manifest.version}\n`);
           NODE
       - name: Create extension ZIP
-        run: zip pokevin.zip manifest.json *.js engine/core.js engine/version.json ui/*.js ui/*.css ui/*.txt ui/script-editor.html ui/*.ttf
+        working-directory: dist/extension
+        run: zip -r ../../pokevin.zip .
       - name: Publish release with extension ZIP
         env:
           GH_TOKEN: ${{ github.token }}

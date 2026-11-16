@@ -28,7 +28,8 @@ function background() {
       } finally { closed = true; }
     } },
   });
-  vm.runInContext(fs.readFileSync(path.join(__dirname, '../background.js'), 'utf8'), ctx);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../plugin/background.js'), 'utf8'), ctx);
+  ctx.PokevinBackground();
   connect({ name: 'encounter-coach', postMessage: reply => replies.push(reply),
     onMessage: { addListener: listener => { message = listener; } },
     onDisconnect: { addListener: listener => { disconnect = listener; } },

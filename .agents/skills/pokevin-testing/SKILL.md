@@ -5,7 +5,7 @@ description: Préserver la compatibilité Chrome et Firefox et tester les change
 
 # Compatibilité et tests de Pokevin
 
-L’extension doit rester compatible avec **Google Chrome et Firefox**, aux versions minimales indiquées dans [manifest.json](../../../manifest.json). Vérifier le parcours concerné sur les deux navigateurs.
+L’extension doit rester compatible avec **Google Chrome et Firefox**, aux versions minimales indiquées dans [manifest.json](../../../plugin/manifest.json). Vérifier le parcours concerné sur les deux navigateurs.
 
 ## Copie locale du jeu actuel
 
@@ -16,6 +16,8 @@ Télécharger le frontend servi sur https://pokecatch-online.netlify.app/# : HTM
 Reproduire le parcours sur ce frontend réel ; les fixtures synthétiques seules ne suffisent pas. Ne pas utiliser de compte personnel ni écrire de données de test en production.
 
 ## Navigateur de test
+
+Compiler avec `npm run build:extension` : le dossier à charger est `dist/extension/`.
 
 Ouvrir un navigateur dans le harness, y charger l’extension et ouvrir la copie locale du jeu. Reprendre les scripts existants et leur préparation de sauvegarde, plutôt que créer un autre environnement :
 

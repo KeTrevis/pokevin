@@ -23,7 +23,7 @@ function environment() {
 function simulator() {
   const context = environment();
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'engine/core.js'), 'utf8'), context);
-  vm.runInContext(fs.readFileSync(path.join(ROOT, 'simulator.js'), 'utf8'), context);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'plugin/simulator.js'), 'utf8'), context);
   return context;
 }
 

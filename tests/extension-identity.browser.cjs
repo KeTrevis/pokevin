@@ -8,10 +8,8 @@ const ROOT = path.resolve(__dirname, '..');
 const EXPECTED_ID = 'nkbaiikgklfinliiaiikjpegelgkjife';
 
 async function main() {
-  const manifest = require('../manifest.json');
+  const manifest = require('../dist/extension/manifest.json');
   assert.ok(manifest.key, 'A fixed public key prevents IDs based on the installation folder');
-  const files = new Set(['engine/version.json', ...manifest.background.scripts,
-    manifest.background.service_worker, ...manifest.content_scripts.flatMap(script => [...script.js, ...script.css])]);
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'pokevin-identity-'));
   let context;
   try {
@@ -22,12 +20,7 @@ async function main() {
     const session = await context.browser().newBrowserCDPSession();
     for (const version of ['0.0.1', '0.0.2']) {
       const folder = path.join(temporary, `pokevin-${version}`);
-      fs.mkdirSync(folder);
-      for (const file of files) {
-        const target = path.join(folder, file);
-        fs.mkdirSync(path.dirname(target), { recursive: true });
-        fs.copyFileSync(path.join(ROOT, file), target);
-      }
+      fs.cpSync(path.join(ROOT, 'dist/extension'), folder, { recursive: true });
       fs.writeFileSync(path.join(folder, 'manifest.json'), JSON.stringify({ ...manifest, version }));
       const [worker, { id }] = await Promise.all([
         context.waitForEvent('serviceworker'),

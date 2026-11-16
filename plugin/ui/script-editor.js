@@ -1,8 +1,11 @@
 // @ts-check
+import { initVimMode } from 'monaco-vim';
 import * as monaco from 'monaco-editor/editor/editor.api.js';
 import 'monaco-editor/language/typescript/monaco.contribution.js';
 import 'monaco-editor/languages/definitions/javascript/register.js';
 import { getJavaScriptWorker, javascriptDefaults } from 'monaco-editor/languages/features/typescript/register.js';
+// Load the language-service module before semantic tokens request its worker.
+import 'monaco-editor/languages/features/typescript/tsMode.js';
 
 import 'monaco-editor/editor/contrib/suggest/browser/suggestController.js';
 import 'monaco-editor/editor/contrib/hover/browser/hoverContribution.js';
@@ -11,10 +14,11 @@ import 'monaco-editor/editor/contrib/bracketMatching/browser/bracketMatching.js'
 import 'monaco-editor/editor/contrib/folding/browser/folding.js';
 import 'monaco-editor/editor/contrib/semanticTokens/browser/documentSemanticTokens.js';
 
-// Workers run on the extension origin, so neither a CDN nor blob/eval permissions are needed.
+// Workers stay on the extension origin, including during WXT development.
 self.MonacoEnvironment = {
   getWorker(_id, label) {
-    return new Worker(label === 'javascript' || label === 'typescript' ? 'monaco-typescript-worker.js' : 'monaco-worker.js');
+    const file = label === 'javascript' || label === 'typescript' ? 'monaco-typescript-worker.js' : 'monaco-worker.js';
+    return new Worker(chrome.runtime.getURL(file));
   },
 };
 javascriptDefaults.setCompilerOptions({ allowJs: true, checkJs: true, target: 99, noEmit: true, moduleDetection: 3 });
@@ -108,7 +112,13 @@ const createButton = /** @type {HTMLButtonElement} */ (element('new-script'));
 const runButton = /** @type {HTMLButtonElement} */ (element('run'));
 const restartButton = /** @type {HTMLButtonElement} */ (element('restart'));
 const changesDialog = /** @type {HTMLDialogElement} */ (element('changes-dialog'));
+const deleteDialog = /** @type {HTMLDialogElement} */ (element('delete-dialog'));
+const vimButton = /** @type {HTMLButtonElement} */ (element('vim'));
+let vimEnabled = localStorage.getItem('pokevin-vim') === 'true';
+/** @type {ReturnType<typeof initVimMode> | undefined} */
+let vimMode;
 const icons = {
+  vim: '<path d="M24 11.986h-.027l-4.318-4.318 4.303-4.414V1.461l-.649-.648h-8.198l-.66.605v1.045L12.015.027V0L12 .014 11.986 0v.027l-1.29 1.291-.538-.539H2.035l-.638.692v1.885l.616.616h.72v5.31L.027 11.987H0L.014 12 0 12.014h.027l2.706 2.706v6.467l.907.523h2.322l1.857-1.904 4.166 4.166V24l.015-.014.014.014v-.028l2.51-2.509h.485c.111 0 .211-.07.25-.179l.146-.426c.028-.084.012-.172-.037-.239l1.462-1.462-.612 1.962c-.043.141.036.289.177.332.025.008.052.012.078.012h1.824c.106-.001.201-.064.243-.163l.165-.394c.025-.065.024-.138-.004-.203-.027-.065-.08-.116-.146-.142-.029-.012-.062-.019-.097-.02h-.075l.84-2.644h1.232l-1.016 3.221c-.043.141.036.289.176.332.025.008.052.012.079.012h2.002c.11 0 .207-.066.248-.17l.164-.428c.051-.138-.021-.29-.158-.341-.029-.011-.06-.017-.091-.017h-.145l1.131-3.673c.027-.082.012-.173-.039-.24l-.375-.504-.003-.005c-.051-.064-.127-.102-.209-.102h-1.436c-.071 0-.141.03-.19.081l-.4.439h-.624l-.042-.046 4.445-4.445H24L23.986 12l.014-.014zM9.838 21.139l1.579-4.509h-.501l.297-.304h1.659l-1.563 4.555h.623l-.079.258H9.838zm3.695-7.516l.15.151-.269.922-.225.226h-.969l-.181-.181.311-.871.288-.247h.895zM5.59 20.829H3.877l-.262-.15V3.091H2.379l-.1-.1V1.815l.143-.154h7.371l.213.214v1.108l-.142.173H8.785v8.688l8.807-8.688h-2.086l-.175-.188V1.805l.121-.111h7.49l.132.133v1.07L12.979 13.25h-.373c-.015-.001-.028 0-.042.001l-.02.003c-.045.01-.086.03-.119.06l-.343.295-.004.003c-.033.031-.059.069-.073.111l-.296.83-6.119 6.276zm14.768-3.952l.474-.519h1.334l.309.415-1.265 4.107h.493l-.08.209H19.84l1.124-3.564h-2.015l-1.077 3.391h.424l-.073.174h-1.605l1.107-3.548h-2.096l-1.062 3.339h.436l-.072.209H13.27l1.514-4.46H14.198l.091-.271h1.65l.519.537h.906l.491-.554h1.061l.489.535h.953z"/>',
   restart: '<path d="M19 8a8 8 0 1 0 1 8h-3a5 5 0 1 1-1-6l-4 3h9V4z"/>',
   play: '<path d="m8 5 11 7-11 7z"/>',
   stop: '<rect x="6" y="6" width="12" height="12" rx="1"/>',
@@ -128,6 +138,32 @@ const selected = () => scripts.find(script => script.id === selectedId);
 const needsRestart = id => runningIds.includes(id) && runningCode[id] !== (models.get(id)?.getValue() ?? scripts.find(script => script.id === id)?.code);
 function renderRestart() { restartButton.hidden = !needsRestart(selectedId); }
 setIcon(restartButton, 'restart', 'Relancer pour appliquer les modifications');
+setIcon(vimButton, 'vim', 'Mode Vim');
+function disposeVim() {
+  vimMode?.dispose();
+  vimMode = undefined;
+  element('vim-status').replaceChildren();
+}
+function updateVim() {
+  disposeVim();
+  vimButton.setAttribute('aria-pressed', String(vimEnabled));
+  const status = element('vim-status');
+  status.hidden = !vimEnabled || !editor.getModel();
+  if (!status.hidden) vimMode = initVimMode(editor, status);
+}
+vimButton.onclick = () => {
+  vimEnabled = !vimEnabled;
+  localStorage.setItem('pokevin-vim', String(vimEnabled));
+  updateVim();
+  if (editor.getModel()) editor.focus();
+};
+editor.onKeyDown(event => {
+  if ((event.ctrlKey || event.metaKey) && event.keyCode === monaco.KeyCode.Enter) {
+    event.preventDefault();
+    run();
+  }
+});
+updateVim();
 /** @param {string} id */
 function startScript(id) {
   const script = scripts.find(item => item.id === id);
@@ -182,7 +218,14 @@ function renderList() {
     toggle.onclick = () => toggleScript(script.id);
     const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'icon-button delete-script';
     setIcon(remove, 'delete', `Supprimer ${label.textContent}`);
-    remove.onclick = () => send('delete', {id:script.id});
+    remove.onclick = () => {
+      element('delete-description').textContent = `Supprimer « ${script.name.trim() || 'Sans nom'} » ? Cette action est définitive.`;
+      deleteDialog.returnValue = 'cancel';
+      deleteDialog.onclose = () => {
+        if (deleteDialog.returnValue === 'delete') send('delete', {id:script.id});
+      };
+      deleteDialog.showModal();
+    };
     actions.append(toggle, remove); row.append(button, actions);
     return row;
   }));
@@ -192,6 +235,7 @@ function renderList() {
 }
 /** @param {string} id */
 function selectScript(id) {
+  disposeVim();
   if (models.has(selectedId)) viewStates.set(selectedId, editor.saveViewState());
   selectedId = id;
   const script = selected();
@@ -210,6 +254,7 @@ function selectScript(id) {
   nameInput.disabled = runButton.disabled = !script;
   element('empty').hidden = !!script;
   renderList();
+  updateVim();
   if (script) editor.focus();
 }
 function save() {
@@ -236,7 +281,7 @@ window.addEventListener('message', event => {
   if (data.action === 'library' && Array.isArray(data.scripts)) {
     for (const [id, model] of models) {
       if (!data.scripts.some((/** @type {Script} */ script) => script.id === id)) {
-        if (editor.getModel() === model) editor.setModel(null);
+        if (editor.getModel() === model) { disposeVim(); editor.setModel(null); }
         model.dispose(); models.delete(id); viewStates.delete(id);
       }
     }
@@ -269,5 +314,4 @@ nameInput.oninput = () => { save(); renderList(); };
 createButton.onclick = async () => { if (await confirmChanges([selectedId])) send('create'); };
 restartButton.onclick = () => { void startScript(selectedId); };
 runButton.onclick = run;
-editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,run);
 send('ready');

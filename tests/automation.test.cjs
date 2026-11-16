@@ -8,7 +8,7 @@ function setup(){
  const context={addEventListener(){},Storage, localStorage:new Storage(), queueMicrotask:fn=>pending.push(fn), console:{error:(...args)=>errors.push(args)},
  document:{documentElement:{},addEventListener(){},querySelector:()=>null},MutationObserver:class{observe(){}}};
  context.window=context;
- vm.runInNewContext(fs.readFileSync(require.resolve('../automation.js'),'utf8'),context);
+ vm.runInNewContext(fs.readFileSync(require.resolve('../plugin/automation.js'),'utf8'),context);
  const write=adv=>{context.localStorage.setItem('gachamon-save-v1',JSON.stringify({fmt:2,adv}));while(pending.length)pending.shift()()};
  return {api:context.pokevin,write,errors,context};
 }

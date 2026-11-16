@@ -1,7 +1,6 @@
 // @ts-check
-// Chromium loads these in its worker; Firefox loads the manifest's ordered scripts.
-if (typeof importScripts === 'function') importScripts('engine/core.js', 'simulator.js', 'encounter-simulator.js', 'optimizer.js', 'chapter-xp.js');
-
+// WXT calls this after the engine modules have loaded.
+globalThis.PokevinBackground = function () {
 const versionReady = fetch(chrome.runtime.getURL('engine/version.json')).then(response => response.json());
 const RUNS = 100;
 let lastKeepAlive = -Infinity;
@@ -107,3 +106,5 @@ chrome.runtime.onConnect.addListener(port => {
     }
   });
 });
+
+};

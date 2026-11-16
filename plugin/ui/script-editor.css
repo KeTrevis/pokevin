@@ -26,7 +26,6 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;pa
 .script-heading{min-width:0;flex:1;display:flex;align-items:center;gap:12px}
 #script-name{width:100%;min-width:0;border:1px solid transparent;background:transparent;border-radius:4px;font-family:"Jersey 15",system-ui,sans-serif;font-size:24px;font-weight:400;padding:6px 4px}
 #script-name:hover:enabled{border-color:#454d67}
-.script-heading>span{font-size:16px;color:#9aa3bb}
 .actions{display:flex;gap:8px}
 #run{color:#12141c;font-weight:400}
 #run[data-icon=play]{background:#4cc96a}
@@ -78,12 +77,16 @@ footer p{margin:0 0 0 auto;text-align:right}
 
 [hidden]{display:none!important}
 #restart{background:transparent;color:#ffdb54}
-#changes-dialog{width:min(560px,calc(100vw - 48px));box-sizing:border-box;padding:24px;color:#eef1f8;background:#1c2030;border:1px solid #454d67;border-radius:8px;font:inherit}
-#changes-dialog::backdrop{background:#080b14aa}
-#changes-dialog h2{font-family:"Jersey 15",system-ui,sans-serif;font-size:26px;font-weight:400;margin:0 0 12px}
-#changes-dialog p{margin:0 0 24px;color:#bec6da}
-#changes-dialog form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-#changes-dialog button{min-width:0}
-#changes-dialog button[value=continue]{background:#ff707d;color:#12141c}
-#changes-dialog button[value=restart]{background:#4cc96a;color:#12141c}
+.confirmation-dialog{width:min(560px,calc(100vw - 48px));box-sizing:border-box;padding:24px;color:#eef1f8;background:#1c2030;border:1px solid #454d67;border-radius:8px;font:inherit}
+.confirmation-dialog::backdrop{background:#080b14aa}
+.confirmation-dialog h2{font-family:"Jersey 15",system-ui,sans-serif;font-size:26px;font-weight:400;margin:0 0 12px}
+.confirmation-dialog p{margin:0 0 24px;color:#bec6da}
+.confirmation-dialog form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.confirmation-dialog button{min-width:0}
+.confirmation-dialog button[value=delete],.confirmation-dialog button[value=continue]{background:#ff707d;color:#12141c}
+.confirmation-dialog button[value=restart]{background:#4cc96a;color:#12141c}
 
+#vim{background:transparent;color:#9aa3bb}
+#vim[aria-pressed=true]{background:#4cc96a22;color:#4cc96a}
+#vim-status{font:12px monospace;color:#4cc96a;min-width:100px}
+#vim-status input{background:#1e1e1e;border:1px solid #454d67;font:inherit;max-width:100%}

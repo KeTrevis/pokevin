@@ -1,9 +1,9 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 require('../engine/core.js');
-require('../simulator.js');
-require('../encounter-simulator.js');
-require('../chapter-xp.js');
+require('../plugin/simulator.js');
+require('../plugin/encounter-simulator.js');
+require('../plugin/chapter-xp.js');
 const { Game, STORY, CONFIG, Adventure } = PokeCatchEngine;
 const NOW = Date.UTC(2026, 10, 4, 12);
 

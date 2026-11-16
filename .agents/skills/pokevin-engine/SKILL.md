@@ -11,7 +11,7 @@ Comparer le nom du bundle et son SHA-256 à [engine/version.json](../../../engin
 
 - Si les empreintes sont identiques, ne pas régénérer inutilement les fichiers.
 - Si le moteur a changé, le mettre à jour **avant de modifier ou tester l’extension** avec [tools/build_extension_engine.py](../../../tools/build_extension_engine.py), en passant le bundle original et le `--build` du même `boot.js`. L’outil écrit aussi les métadonnées de version. Adapter l’extracteur si nécessaire.
-- Lors de cette mise à jour, régénérer aussi `ui/chapter-data.js` avec `node tools/build_chapter_preview.cjs <bundle-original>`, depuis ce même bundle.
+- Lors de cette mise à jour, régénérer aussi `plugin/ui/chapter-data.js` avec `node tools/build_chapter_preview.cjs <bundle-original>`, depuis ce même bundle.
 - Vérifier ensuite les simulations contre le jeu réel sur Chrome et Firefox en suivant [pokevin-testing](../pokevin-testing/SKILL.md).
 
 ## Différence de version à l’exécution

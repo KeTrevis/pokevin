@@ -31,7 +31,7 @@ async function main() {
   try {
     context = await chromium.launchPersistentContext(profile, { channel: 'chromium', headless: true,
       viewport: { width: 1920, height: 1080 },
-      args: [`--disable-extensions-except=${ROOT}`, `--load-extension=${ROOT}`] });
+      args: [`--disable-extensions-except=${path.join(ROOT, 'dist/extension')}`, `--load-extension=${path.join(ROOT, 'dist/extension')}`] });
     // Keep the local test independent of all live accounts and APIs.
     await context.route('**/*supabase.co/**', route => route.abort());
     const page = await context.newPage();

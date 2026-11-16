@@ -2,12 +2,18 @@
   "name": "pokevin",
   "private": true,
   "scripts": {
-    "build:extension": "esbuild ui/index.jsx --bundle --minify --jsx=automatic --format=iife --outfile=ui/react-ui.js && node tools/build_editor.cjs",
+    "build:extension": "wxt build",
     "test:preview": "node --test tests/chapter-preview.test.cjs",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "dev": "wxt",
+    "test:dev": "node --test tests/dev-server.test.cjs",
+    "dev:firefox": "wxt -b firefox",
+    "build:firefox": "wxt build -b firefox",
+    "postinstall": "wxt prepare"
   },
   "dependencies": {
     "monaco-editor": "0.57.0",
+    "monaco-vim": "0.4.4",
     "react": "19.2.0",
     "react-dom": "19.2.0"
   },
@@ -15,8 +21,10 @@
     "@types/chrome": "0.3.7",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
-    "esbuild": "0.25.12",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "vite": "7.3.8",
+    "web-ext": "10.8.0",
+    "wxt": "0.21.5"
   },
   "overrides": {
     "dompurify": "3.4.18"

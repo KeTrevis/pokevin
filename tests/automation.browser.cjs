@@ -24,7 +24,7 @@ async function main() {
   save.roam = { at: {243: {ch:14,until:Date.now()+600000}}, caught:[244,245,380,381,481] };
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'pokevin-automation-'));
   const context = await chromium.launchPersistentContext(profile, { channel: 'chromium', headless: process.env.KEEP_OPEN !== '1',
-    viewport: {width:1920,height:1080}, args: [`--disable-extensions-except=${ROOT}`,`--load-extension=${ROOT}`] });
+    viewport: {width:1920,height:1080}, args: [`--disable-extensions-except=${path.join(ROOT, 'dist/extension')}`,`--load-extension=${path.join(ROOT, 'dist/extension')}`] });
   try {
     await context.route('**/*supabase.co/**', route => route.abort());
     const page = await context.newPage();
@@ -241,10 +241,16 @@ async function main() {
     assert.equal(await page.evaluate(()=>document.querySelector('#screen-pokevin-scripts iframe').getBoundingClientRect().right<=innerWidth),true);
     await editorFrame.waitForFunction(() => document.body.scrollWidth <= innerWidth);
     await page.setViewportSize({width:1920,height:1080});
+    const countBeforeCancel = await frame.locator('.script-row').count();
+    await frame.locator('.script-row').first().hover();
+    await frame.locator('.delete-script').first().click();
+    await frame.getByRole('button', {name:'Annuler', exact:true}).click();
+    assert.equal(await frame.locator('.script-row').count(), countBeforeCancel);
     while (await frame.locator('.delete-script').count()) {
       await frame.locator('.script-row').first().hover();
       const before = await frame.locator('.script-row').count();
       await frame.locator('.delete-script').first().click();
+      await frame.getByRole('button', {name:'Supprimer', exact:true}).click();
       await page.waitForFunction(before=>JSON.parse(localStorage.getItem('pokevin-scripts')).scripts.length===before-1,before);
     }
     await frame.locator('#empty:not([hidden])').waitFor();

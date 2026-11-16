@@ -20,7 +20,7 @@ function environment() {
 }
 function simulator() {
   const ctx = environment();
-  for (const file of ['engine/core.js', 'simulator.js', 'encounter-simulator.js', 'optimizer.js']) vm.runInContext(fs.readFileSync(path.join(ROOT, file), 'utf8'), ctx);
+  for (const file of ['engine/core.js', 'simulator.js', 'encounter-simulator.js', 'optimizer.js']) vm.runInContext(fs.readFileSync(path.join(ROOT, file.startsWith('engine/') ? file : 'plugin/' + file), 'utf8'), ctx);
   return ctx;
 }
 function fixture(ctx, chapter = 0, level = 100) {

@@ -148,7 +148,6 @@
     status = message;
     sendEditor('status', { message, ...runtimeState() });
   }
-  const example = `pokevin.events.onBattleFinished(({ chapterId, roamer }) => {\n  if (roamer) return pokevin.changeChapter(chapterId);\n});`;
   function loadLibrary() {
     const raw = localStorage.getItem('pokevin-scripts');
     if (raw !== null) {
@@ -158,8 +157,8 @@
       library = { scripts: saved.scripts, selectedId: saved.scripts.some(script => script.id === saved.selectedId) ? saved.selectedId : saved.scripts[0]?.id ?? '' };
     } else {
       const legacy = localStorage.getItem('pokevin-script');
-      const script = { id: crypto.randomUUID(), name: legacy !== null ? 'Mon script' : 'Relancer les roamings', code: legacy ?? example };
-      saveLibrary({ scripts: [script], selectedId: script.id });
+      const scripts = legacy !== null ? [{ id: crypto.randomUUID(), name: 'Mon script', code: legacy }] : [];
+      saveLibrary({ scripts, selectedId: scripts[0]?.id ?? '' });
     }
   }
   /** @param {Library} next */

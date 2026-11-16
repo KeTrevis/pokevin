@@ -48,7 +48,7 @@ async function main() {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'pokecatch-coach-test-'));
   let context;
   try {
-    const extension = ROOT;
+    const extension = path.join(ROOT, 'dist/extension');
     context = await chromium.launchPersistentContext(profile, {
       executablePath: process.env.BROWSER_EXECUTABLE || undefined,
       headless: true, viewport: { width: 1920, height: 1080 },
@@ -310,8 +310,8 @@ async function main() {
     assert.equal(await game.locator('#pc-team-advisor').evaluate(element => element.getBoundingClientRect().right <= innerWidth), true);
     await game.setViewportSize({ width: 1920, height: 1080 });
     await game.screenshot({ path: path.join(ROOT, 'coach-team-after-mobile-preview.png') });
-    await game.addScriptTag({ path: path.join(ROOT, 'save-reader.js') });
-    await game.addScriptTag({ path: path.join(ROOT, 'apply-team.js') });
+    await game.addScriptTag({ path: path.join(ROOT, 'plugin/save-reader.js') });
+    await game.addScriptTag({ path: path.join(ROOT, 'plugin/apply-team.js') });
     const nativeApply = await game.evaluate(async () => {
       const read = () => JSON.parse(localStorage.getItem('gachamon-save-v1'));
       const before = read();

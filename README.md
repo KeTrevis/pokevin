@@ -3,6 +3,58 @@
 Extension Chrome / Edge / Firefox, version 0.4.6. Moteur embarqué synchronisé avec
 le build du jeu `b05c8cc201` (bundle `app.c0081498f2.js`).
 
+## Développement local avec WXT
+
+Node.js 22.12+ et Chrome ou Firefox doivent être installés. Depuis le worktree :
+
+```sh
+npm ci
+npm run dev
+```
+
+WXT ouvre un navigateur dédié, installe automatiquement la vraie extension et
+ouvre le jeu local sur `http://127.0.0.1:8080/`. Rien à charger manuellement dans
+la page des extensions. Vite sert le frontend officiel ; une connexion Internet
+est nécessaire pour ses ressources. `GAME_DIR=/chemin/jeu npm run dev` utilise
+une copie locale existante ; `PORT=8087 npm run dev` change le port du jeu.
+
+- `plugin/` : sources, types et points d’entrée WXT de l’extension.
+- `engine/` : moteur embarqué et métadonnées du jeu.
+- `server/` : page locale du jeu et configuration Vite.
+- `dist/extension/` : build de production, prêt à charger ou zipper.
+- `dist/extension-dev/` : build de développement géré par WXT.
+
+Pour Firefox : `npm run dev:firefox`. Pour compiler sans ouvrir de navigateur :
+`npm run build:extension` (Chrome) ou `npm run build:firefox`.
+Le build de production contient un manifeste commun à Chrome et Firefox.
+
+WXT surveille les sources, reconstruit les scripts et recharge les onglets
+concernés. Les scripts enregistrés sont conservés ; les
+automatisations actives doivent être relancées après un rechargement.
+
+Pour changer de worktree : **Ctrl+C**, puis `npm ci` (la première fois) et
+`npm run dev` depuis l’autre dossier. Le profil Chrome est partagé sous
+`<répertoire Git commun>/pokevin-dev/chrome-profile/` : il conserve la partie et
+les scripts entre lancements. Garder le même port pour conserver l’origine du
+jeu. Le profil est réservé au développement, distinct du navigateur personnel.
+Firefox utilise par défaut un profil temporaire : sa partie n’est pas conservée
+entre lancements. Exporter sa sauvegarde avant de fermer le navigateur.
+
+WXT peut être personnalisé localement via `web-ext.config.ts` (ignoré par Git),
+notamment pour choisir le binaire du navigateur. Voir la
+[documentation de lancement WXT](https://wxt.dev/guide/essentials/config/browser-startup).
+
+```sh
+npm run test:dev
+PLAYWRIGHT_MODULE=/chemin/node_modules/playwright node tests/dev-server.browser.cjs
+```
+
+Le test navigateur démarre lui-même WXT dans un profil Chrome temporaire, sans
+installation manuelle par le test. Il vérifie le jeu réel, Monaco, les scripts,
+le rechargement et les simulations. Il nécessite l’absence de configuration
+locale `web-ext.config.ts` et restaure le fichier CSS modifié pendant le test.
+Les captures sont sous `artifacts/wxt-dev-*.png`.
+
 ## Installation
 
 Télécharger `pokevin.zip` depuis les [releases GitHub](https://github.com/KeTrevis/pokevin/releases),
@@ -60,8 +112,8 @@ durable demandera une version signée par Mozilla. Aucune publication ni signatu
 n’a été effectuée. Safari n’est pas ciblé ni testé pour le moment.
 
 Les composants React `Badge`, `Tooltip`, `ActionButton` et `TeamAdvisor` sont décrits dans
-[ui/README.md](ui/README.md). Ils utilisent les styles et variables de thème du
-jeu. React est embarqué dans l’extension ; aucun CDN n’est utilisé.
+[plugin/ui/README.md](plugin/ui/README.md). Ils utilisent les styles et variables de thème du
+jeu. React est embarqué dans le build de production ; aucun CDN n’est utilisé.
 
 L’extension accepte aussi le domaine officiel. Si le nom du bundle ne correspond
 pas à celui du moteur embarqué, un avertissement orange signale que les résultats
@@ -427,7 +479,7 @@ que le champion change. Les scripts utilisateur sont stockés localement ; aucun
 Chaque push sur `main` lance le contrôle des types, la compilation et la publication
 d’une release avec `pokevin.zip` en pièce jointe. Le tag et le manifeste du ZIP
 reçoivent une version à quatre nombres : `v0.4.6.1`, `v0.4.6.2`, etc. Les trois
-premiers viennent de `manifest.json`, le dernier est le numéro d’exécution du workflow.
+premiers viennent de `plugin/manifest.json`, le dernier est le numéro d’exécution du workflow.
 La release cible le commit du push ; aucun commit de version n’est ajouté au dépôt.
 Aucun tag ni release n’est à créer manuellement ; les releases manuelles ne déclenchent rien.
 
@@ -437,7 +489,7 @@ le ZIP existant. Aucun secret à configurer.
 
 ## Reproduction et vérification
 
-Depuis la racine du dépôt, avec Python 3 et Node 18 ou ultérieur :
+Depuis la racine du dépôt, avec Python 3 et Node 22 ou ultérieur :
 
 ```powershell
 python tools/build_extension_engine.py /chemin/app.c0081498f2.js --build b05c8cc201
@@ -455,7 +507,7 @@ parité (par défaut `../game/bundle/` et le nom dans `engine/version.json`).
 `GAME_DIR` désigne la copie locale du site pour les tests navigateur (par défaut
 `../game`). Le bundle original et les fichiers du site ne sont pas inclus ici.
 
-Pour reconstruire les composants React (le bundle prêt à charger est fourni) :
+Pour reconstruire les composants React (les sources et bundles sont fournis) :
 
 ```powershell
 npm ci
@@ -463,15 +515,18 @@ npm run typecheck
 npm run build:extension
 ```
 
+Charger ensuite `dist/extension/` dans le navigateur. Pour les tests navigateur,
+effectuer cette compilation avant leur lancement.
+
 Le JavaScript et les composants JSX maintenus sont vérifiés en mode strict avec
-`@ts-check` et des annotations JSDoc. `types/domain.d.ts` décrit les sauvegardes,
+`@ts-check` et des annotations JSDoc. `plugin/types/domain.d.ts` décrit les sauvegardes,
 les résultats, les messages et la surface du moteur utilisée par l’extension.
 `npm run typecheck` vérifie ces contrats sans produire de fichiers. Le moteur,
 les données et le bundle UI générés sont exclus du contrôle ; les sources JSX
 sont contrôlées avant leur compilation. Les dépendances de types servent au
 développement uniquement.
 
-Les versions de React et d’esbuild sont verrouillées par `package-lock.json`.
+Les versions de React, WXT et Vite sont verrouillées par `package-lock.json`.
 Node n’est nécessaire que pour développer ou reconstruire l’extension.
 
 Le générateur recopie trois tranches **sans réécriture** du bundle du jeu :
@@ -488,7 +543,7 @@ déjà battu et les bornes statistiques. Un test compare les effets d’une
 évolution en combat aux vrais gestionnaires d’évolution de l’interface du jeu.
 
 Un contrôle navigateur optionnel se lance avec
-`node extension/tests/browser.test.cjs`, si Playwright et un Chromium récent
+`node tests/browser.test.cjs`, si Playwright et un Chromium récent
 sont déjà installés. `PLAYWRIGHT_MODULE` peut désigner un paquet Playwright
 existant, et `BROWSER_EXECUTABLE` le chemin du navigateur. Le test utilise un
 profil temporaire et une équipe fictive. Il vérifie le badge automatique,
