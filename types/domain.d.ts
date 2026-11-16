@@ -28,7 +28,7 @@ export interface StoryStep {
 export interface SpecialEvent { id: number; seq: number | string; level: number; back: number; loops: number; runMs?: number; raid?: boolean; reg?: string; date?: string; end?: number | null }
 export interface EventSchedule { id: number; seq: number; openAt: number; closeAt: number; end?: number | null }
 export interface LegendZone { id: number; foe?: number; level: number; back?: number; wb?: boolean; zone: string; bg: string; areas?: string[]; habitat?: string; weather?: string | null; region: string; }
-export interface BattleNode extends Partial<StoryStep> { text?: string; bg?: string; areas?: string[]; habitat?: string; weather?: string | null; type: string; name?: string; ch?: number; gym?: StoryStep; level?: number; legend?: boolean; raid?: boolean; zone?: number; }
+export interface BattleNode extends Partial<StoryStep> { text?: string; bg?: string; areas?: string[]; habitat?: string; weather?: string | null; type: string; name?: string; ch?: number; gym?: StoryStep; level?: number; legend?: boolean; raid?: boolean; zone?: number; roamer?: number; }
 export interface TowerRun { floor: number; week: string; mons: Mon[] }
 export interface Encounter { id: string; name: string; kind: string; chapter?: number }
 
@@ -57,6 +57,7 @@ export interface Save {
   mons: Mon[];
   team: string[];
   road?: string[];
+  pcOrder?: string[];
   adv: AdventureState;
   travel?: { to: string[] };
   stats: Record<string, number>;
@@ -71,6 +72,7 @@ export interface Save {
   events?: { cur?: EventSchedule; priv?: EventSchedule };
   raids?: { allies: Mon[] };
   tower?: { run: TowerRun | null };
+  roam?: { at: Record<string, { ch: number; until: number }>; caught: number[] };
 }
 
 export interface Evolution { uid: string; from: number; to: number; forced?: boolean }
@@ -178,6 +180,7 @@ export interface Engine {
     counterValue(ally: Mon, enemy: Mon, level: number): number;
   };
   STATUS: { clear(mon: Mon): void };
+  Roaming: { free(id: number): boolean; level(): number };
   LegendZones: { get(id: number): LegendZone | undefined; foe(zone: LegendZone): number };
   Events: { legendOf(id: number): object | undefined; get(seq: number | string): EventSchedule | null; isOpen(seq: number): boolean; buildRun(event: EventSchedule): BattleNode[] };
   Raids: { buildRun(event: SpecialEvent): BattleNode[] };

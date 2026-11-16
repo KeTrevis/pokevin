@@ -1,0 +1,17 @@
+.pc-multi-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 8px; color: var(--muted); font-size: 12px; line-height: 16px; }
+.pc-multi-clear { flex-shrink: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.pc-multi-clear:hover { text-decoration: underline; }
+#pc-grid .pc-multi-selected { outline: 2px solid var(--gold, #ffd43b); outline-offset: -2px; }
+#pc-grid .pc-multi-selected::after { content: '✓'; position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; display: grid; place-items: center; background: var(--gold, #ffd43b); color: #171923; border-radius: 50%; font-size: 12px; }
+#pc-grid .pc-multi-selected .pc-evo { right: 26px; }
+#pc-grid .pc-cell:focus-visible { outline: 3px solid var(--gold, #ffd43b); outline-offset: 2px; }
+#pc-grid .pc-multi-before { box-shadow: -4px 0 var(--gold, #ffd43b); }
+#pc-grid .pc-multi-after { box-shadow: 4px 0 var(--gold, #ffd43b); }
+.pc-multi-drag, .pc-multi-drag * { cursor: grabbing !important; user-select: none !important; }
+.pc-multi-drag #pc-grid .pc-multi-selected { opacity: .6; }
+.pc-multi-ghost { position: fixed; top: 0; left: 0; z-index: 100000; pointer-events: none; display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: var(--panel, #202536); color: var(--text, #fff); border: 2px solid var(--gold, #ffd43b); border-radius: 8px; box-shadow: 3px 3px 0 #0006; }
+.pc-multi-ghost img { width: 40px; height: 40px; object-fit: contain; image-rendering: pixelated; }
+.pc-multi-busy { cursor: progress; }
+.pc-multi-paint, .pc-multi-paint * { user-select: none !important; }
+.pc-multi-paint #pc-grid, .pc-multi-paint #pc-grid * { cursor: crosshair; }
+.pc-multi-busy #pc-grid { pointer-events: none; }

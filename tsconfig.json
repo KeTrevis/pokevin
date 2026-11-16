@@ -22,11 +22,13 @@
   },
   "include": [
     "content.js",
+    "save-reader.js",
     "background.js",
     "simulator.js",
     "chapter-xp.js",
     "optimizer.js",
     "apply-team.js",
+    "pc-multiselect.js",
     "ui/**/*.jsx",
     "ui/version-warning.js",
     "ui/pension.js",

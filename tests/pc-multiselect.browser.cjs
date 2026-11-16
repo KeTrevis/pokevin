@@ -1,0 +1,174 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+require('../engine/core.js');
+const ROOT = path.resolve(__dirname, '..');
+async function main() {
+  const { Game } = PokeCatchEngine;
+  const save = Game.freshState();
+  save.trainer = { name: 'PC test', sprite: 'red', feats: {} };
+  const ids = [1, 4, 7, 10, 13, 16, 19, 21, 23, 25, 27, 29, 32, 35, 37, 39, 41, 43, 46, 48];
+  save.mons = ids.map((id, i) => ({ ...Game.makeMon(id, 10, { shiny: false }), uid: `multi-${i}` }));
+  for (let id = 1; id <= 151; id++) if (!ids.includes(id)) save.mons.push({ ...Game.makeMon(id, 10, { shiny: false }), uid: `multi-${save.mons.length}` });
+  for (let id = 1; save.mons.length < 260; id++) save.mons.push({ ...Game.makeMon(id, 10, { shiny: true }), uid: `multi-${save.mons.length}` });
+  save.team = [];
+  save.pcOrder = [0,2,7,1,3,6,8,5,4,9,10,11,12,13,14,15,16,17,18,19].map(i => `multi-${i}`).concat(save.mons.slice(20).map(mon => mon.uid)); save.pcSort = 'custom';
+  save.adv = { chapter: 0, unlocked: 0, nodes: [], node: 0, layout: 6,
+    badges: [], gifts: { starter: true }, kept: {}, speed: 1, paused: true, loops: [], runs: 0 };
+  const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'pokevin-multi-'));
+  let context;
+  try {
+    context = await chromium.launchPersistentContext(profile, { channel: 'chromium', headless: true,
+      viewport: { width: 1920, height: 1080 },
+      args: [`--disable-extensions-except=${ROOT}`, `--load-extension=${ROOT}`] });
+    await context.route('**/*supabase.co/**', route => route.abort());
+    const page = await context.newPage();
+    await page.goto(process.env.GAME_URL || 'http://127.0.0.1:8080/');
+    await page.evaluate(state => { localStorage.setItem('gachamon-save-v1', JSON.stringify(state)); localStorage.setItem('pokecatch.lang', 'fr'); }, save);
+    await page.reload();
+    await page.locator('.title-fx .ti-go').click();
+    await page.locator('.title-fx').waitFor({ state: 'detached' });
+    await page.locator('#tabs [data-screen="team"]').click();
+    await page.locator('.pc-multi-bar').waitFor();
+    const card = index => page.locator(`#pc-grid .pc-cell[data-uid="multi-${index}"]`);
+    const read = () => page.evaluate(() => JSON.parse(localStorage.getItem('gachamon-save-v1')));
+    const order = () => read().then(state => state.pcOrder);
+    let before = await read();
+    fs.writeFileSync(path.join(ROOT, 'artifacts/pc-multi-seed.json'), JSON.stringify(save));
+    const selection = () => page.locator('#pc-grid .pc-multi-selected').evaluateAll(elements => elements.map(el=>el.dataset.uid).sort());
+    const center = async index => { const r = await card(index).boundingBox(); assert.ok(r); return {x:r.x+r.width/2,y:r.y+r.height/2}; };
+    const sweepStart = await center(0), sweepEnd = await center(8);
+    const layout = () => page.evaluate(() => ({ barHeight: document.querySelector('.pc-multi-bar').getBoundingClientRect().height, gridTop: document.querySelector('#pc-grid').getBoundingClientRect().top }));
+    await page.evaluate(() => Promise.all(document.getAnimations().filter(animation => animation.effect.getComputedTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => {}))));
+    const unselectedLayout = await layout();
+    await card(6).click({modifiers:['Control']});
+    assert.deepEqual(await layout(), unselectedLayout, 'Selecting a Pokémon keeps the hint height and PC grid position unchanged');
+    await page.keyboard.down('Control');
+    await page.mouse.move(sweepStart.x,sweepStart.y); await page.mouse.down();
+    await page.mouse.move(sweepEnd.x,sweepEnd.y,{steps:1});
+    const swept = [0,2,7,1,3,8].map(i=>`multi-${i}`).sort();
+    assert.deepEqual(await selection(),swept,'A fast Ctrl-drag toggles every crossed card, including deselection');
+    await page.mouse.move(sweepStart.x,sweepStart.y,{steps:1});
+    assert.deepEqual(await selection(),swept,'Re-entering a card does not toggle it again in the same stroke');
+    await page.keyboard.up('Control');
+    const untouched = await center(9); await page.mouse.move(untouched.x,untouched.y,{steps:1}); await page.mouse.up();
+    assert.deepEqual(await selection(),swept,'Releasing Ctrl stops painting and does not start a group move');
+    assert.equal(await page.locator('#modal-root.open').count(),0);
+    assert.deepEqual(await order(),before.pcOrder,'Painting only changes selection, never PC order');
+    const sweepShot = path.join(ROOT,'artifacts/pc-sweep-selection.png');
+    await page.screenshot({path:sweepShot});
+    const sweepPng = fs.readFileSync(sweepShot);
+    assert.equal(sweepPng.readUInt32BE(16),1920); assert.equal(sweepPng.readUInt32BE(20),1080);
+    await page.keyboard.down('Meta');
+    await page.mouse.move(sweepStart.x,sweepStart.y); await page.mouse.down();
+    await page.mouse.move(sweepEnd.x,sweepEnd.y,{steps:8}); await page.mouse.up(); await page.keyboard.up('Meta');
+    assert.deepEqual(await selection(),['multi-6'],'A new Cmd stroke can invert the same cards again');
+    await page.keyboard.down('Control'); await page.mouse.move(sweepStart.x,sweepStart.y); await page.mouse.down();
+    await page.mouse.move(sweepEnd.x,sweepEnd.y,{steps:5}); await page.keyboard.press('Escape');
+    await page.mouse.up(); await page.keyboard.up('Control');
+    assert.deepEqual(await selection(),[],'Escape ends a selection stroke');
+    assert.equal(await page.locator('.pc-multi-ghost').count(),0,'Selection strokes never move Pokémon');
+
+    await card(6).click({modifiers:['Control']}); await card(8).click({modifiers:['Control']});
+    await drag(6, 9);
+    const pikachuExpected = before.pcOrder.filter(uid => !['multi-6','multi-8'].includes(uid));
+    pikachuExpected.splice(pikachuExpected.indexOf('multi-9')+1,0,'multi-6','multi-8');
+    assert.deepEqual(await order(),pikachuExpected,'Rattata and Ekans stay together after Pikachu');
+    for (const [target, insertAfter] of [[9,true],[9,false],[10,false],[9,true],[0,true],[19,false],[9,false],[9,true],[7,false],[9,false]]) {
+      const previous = await order();
+      const wanted = previous.filter(uid=>!['multi-6','multi-8'].includes(uid));
+      wanted.splice(wanted.indexOf(`multi-${target}`)+Number(insertAfter),0,'multi-6','multi-8');
+      await drag(6,target,insertAfter);
+      assert.deepEqual(await order(),wanted,`Repeated group move ${insertAfter?'after':'before'} multi-${target}`);
+    }
+    await page.screenshot({path:path.join(ROOT,'artifacts/pc-multiselect-pikachu-fixed.png')});
+    await page.locator('.pc-multi-bar button').click();
+    before = await read();
+    await card(1).click({ modifiers: ['Control'] });
+    await card(3).click({ modifiers: ['Control'] });
+    assert.equal(await page.locator('.pc-multi-selected').count(), 2);
+    assert.equal(await page.locator('#modal-root.open').count(), 0, 'Ctrl-click must not open details');
+    assert.deepEqual(await order(), before.pcOrder, 'Selection never writes to storage');
+    await card(3).click({ modifiers: ['Meta'] });
+    assert.equal(await page.locator('.pc-multi-selected').count(), 1);
+    await card(3).click({ modifiers: ['Meta'] });
+    async function drag(from, to, after = true) {
+      const a = await card(from).boundingBox(), b = await card(to).boundingBox();
+      assert.ok(a && b);
+      await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(b.x + b.width * (after ? .75 : .25), b.y + b.height / 2, { steps: 10 });
+      assert.equal(await page.locator('.pc-multi-ghost b').innerText(), '2');
+      await page.mouse.up();
+      await page.waitForFunction(() => !document.body.classList.contains('pc-multi-busy'));
+    }
+    await card(1).scrollIntoViewIfNeeded();
+    await drag(1, 6);
+    const expected = before.pcOrder.filter(uid => !['multi-1', 'multi-3'].includes(uid));
+    expected.splice(expected.indexOf('multi-6') + 1, 0, 'multi-1', 'multi-3');
+    assert.deepEqual(await order(), expected, 'The group moves after the target in original PC order');
+    assert.deepEqual((await read()).team, before.team);
+    assert.deepEqual((await read()).mons.map(mon => mon.uid).sort(), before.mons.map(mon => mon.uid).sort());
+    await drag(3, 0, false);
+    const expectedBack = expected.filter(uid => !['multi-1', 'multi-3'].includes(uid));
+    expectedBack.unshift('multi-1', 'multi-3');
+    assert.deepEqual(await order(), expectedBack, 'The group also moves toward the start');
+    const snapshot = await order();
+    const a = await card(1).boundingBox(), b = await card(6).boundingBox();
+    await page.mouse.move(a.x + 20, a.y + 20); await page.mouse.down();
+    await page.mouse.move(b.x + 20, b.y + 20, { steps: 8 });
+    await page.keyboard.press('Escape'); await page.mouse.up();
+    assert.equal(await page.locator('.pc-multi-ghost').count(), 0);
+    assert.equal(await page.locator('.pc-multi-selected').count(), 0);
+    assert.deepEqual(await order(), snapshot, 'Escape cancels without moving anything');
+    await card(1).click({ modifiers: ['Control'] }); await card(3).click({ modifiers: ['Control'] });
+    await page.evaluate(() => Promise.all([...document.images].filter(img => { const r = img.getBoundingClientRect(); return r.width && r.height && r.top < innerHeight && r.bottom > 0; }).map(img => img.decode().catch(() => {}))));
+    const screenshot = path.join(ROOT, 'artifacts/pc-multiselect.png');
+    await page.screenshot({ path: screenshot });
+    const png = fs.readFileSync(screenshot);
+    assert.equal(png.readUInt32BE(16), 1920); assert.equal(png.readUInt32BE(20), 1080);
+    await page.locator('.pc-multi-bar button').click();
+    assert.equal(await page.locator('.pc-multi-selected').count(), 0);
+    async function reveal(index) {
+      await page.evaluate(uid => {
+        const grid = document.querySelector('#pc-grid'), first = grid.querySelector('.pc-cell');
+        const state = JSON.parse(localStorage.getItem('gachamon-save-v1'));
+        const css = getComputedStyle(grid), columns = css.gridTemplateColumns.split(' ').length;
+        const row = Math.floor(state.pcOrder.indexOf(uid) / columns);
+        scrollTo(0, grid.getBoundingClientRect().top + scrollY + row * (first.getBoundingClientRect().height + parseFloat(css.rowGap)) - innerHeight / 2);
+      }, `multi-${index}`);
+      await card(index).waitFor(); await card(index).scrollIntoViewIfNeeded();
+    }
+    const longBefore = await order();
+    await card(1).click({ modifiers: ['Control'] });
+    await reveal(180); await card(180).click({ modifiers: ['Control'] });
+    await reveal(220);
+    // Start from the selected off-screen group's visible member, then drop far away.
+    await reveal(180); await drag(180, 220);
+    const longExpected = longBefore.filter(uid => !['multi-1', 'multi-180'].includes(uid));
+    longExpected.splice(longExpected.indexOf('multi-220') + 1, 0, 'multi-1', 'multi-180');
+    assert.deepEqual(await order(), longExpected, 'Virtualized sources stay selected and move with the group');
+    await page.keyboard.press('Escape');
+    await page.locator('#pc-sort').selectOption('recent');
+    await page.evaluate(() => scrollTo(0, document.querySelector('#pc-grid').getBoundingClientRect().top + scrollY - 300));
+    const recent = await page.locator('#pc-grid .pc-cell').evaluateAll(elements => elements.slice(0,3).map(el=>Number(el.dataset.uid.split('-')[1])));
+    await card(recent[0]).click({modifiers:['Control']}); await card(recent[1]).click({modifiers:['Control']});
+    await drag(recent[0], recent[2]);
+    const recentOrder = await order(), anchor = recentOrder.indexOf(`multi-${recent[2]}`);
+    assert.deepEqual(recentOrder.slice(anchor+1,anchor+3),[`multi-${recent[0]}`,`multi-${recent[1]}`], 'Dragging from a built-in sort switches to the native custom order');
+    await page.locator('#pc-search').fill('Bulbizarre');
+    assert.equal(await page.locator('.pc-multi-selected').count(),0,'Filtering clears the selection');
+    await page.locator('#pc-search').fill('');
+    await page.locator('.pc-multi-bar button').waitFor({state:'hidden'});
+    await page.waitForFunction(() => document.querySelectorAll('#pc-grid .pc-cell').length > 2);
+    const first = page.locator('#pc-grid .pc-cell[tabindex="0"]').first();
+    await first.press('Control+Space');
+    assert.equal(await page.locator('.pc-multi-selected').count(),1,'Keyboard selection works');
+    await page.keyboard.press('Escape'); await first.press('Enter'); await page.locator('#modal-root.open').waitFor();
+    console.log('PC multi-selection: Ctrl/Cmd, toggle, group reorder both ways, cancellation, no lost Pokémon, normal click passed.');
+    console.log('Screenshot:', screenshot);
+  } finally { await context?.close(); fs.rmSync(profile, { recursive: true, force: true }); }
+}
+main().catch(error => { console.error(error); process.exitCode = 1; });

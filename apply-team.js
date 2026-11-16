@@ -7,7 +7,7 @@
   const readSave = () => {
     const raw = localStorage.getItem('gachamon-save-v1');
     if (!raw) throw new Error('Sauvegarde absente. Relance le jeu avant d’appliquer cette équipe.');
-    return JSON.parse(raw);
+    return PokeCatchSave.parse(raw);
   };
   const pause = () => new Promise(resolve => setTimeout(resolve, 40));
   const slots = () => [...document.querySelectorAll('#team-slots > .slot')].filter(slot => slot instanceof HTMLElement);

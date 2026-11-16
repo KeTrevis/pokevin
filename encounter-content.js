@@ -95,7 +95,7 @@
   function snapshot() {
     const raw = localStorage.getItem('gachamon-save-v1');
     if (!raw || raw.length > 16 * 1024 * 1024) throw new Error('Sauvegarde absente ou trop volumineuse.');
-    return JSON.parse(raw);
+    return PokeCatchSave.parse(raw);
   }
 
   function connect() {

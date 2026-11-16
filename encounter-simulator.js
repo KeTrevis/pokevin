@@ -5,6 +5,18 @@
   const { Game, Adventure, STORY, LegendZones, Events, Raids, Tower } = engine;
   const clone = structuredClone;
 
+  /** @param {import('./types/domain').Save} save @param {number} chapter @param {number} [now] @returns {import('./types/domain').Encounter | null} */
+  function roaming(save, chapter, now = Date.now()) {
+    const entry = Object.entries(save.roam?.at || {}).find(([id, location]) =>
+      location.ch === chapter && location.until > now && !save.roam?.caught.includes(Number(id)));
+    if (!entry) return null;
+    const id = Number(entry[0]);
+    engine.setSnapshotTime(now);
+    const state = clone(save);
+    if (!Game.DEX[id] || !Game.sandbox(state, () => engine.Roaming.free(id))) return null;
+    return { id: `roaming:${chapter}:${id}`, name: Game.DEX[id].name, kind: 'roaming', chapter };
+  }
+
   /** @returns {import('./types/domain').Encounter[]} */
   function catalog() {
     const encounters = STORY.CHAPTERS.flatMap((chapter, ch) => chapter.steps.flatMap((step, index) => {
@@ -59,6 +71,12 @@
       state.adv.event = { ...clone(event), runMs: 0 };
       teamKey = `raid:${value}`;
       name = Game.DEX[event.id].name;
+    } else if (kind === 'roaming') {
+      const encounter = roaming(save, Number(value), now);
+      if (!encounter || encounter.id !== id) throw new Error('Ce Pokémon errant n’est plus présent dans ce chapitre.');
+      if (STORY.regionOf(Number(value)).key !== STORY.regionOf(save.adv.chapter).key) throw new Error('Choisis une rencontre de ta région.');
+      state.adv.chapter = Number(value);
+      name = encounter.name;
     } else if (kind === 'story') {
       const chapter = Number(value), index = Number(step);
       const node = STORY.CHAPTERS[chapter]?.steps[index];
@@ -100,7 +118,11 @@
       }
       /** @type {import('./types/domain').BattleNode | undefined} */
       let node;
-      if (kind === 'zone') {
+      if (kind === 'roaming') {
+        Adventure.buildChapter(s.adv.chapter);
+        node = s.adv.nodes.find(node => node.roamer === Number(id.split(':')[2]));
+        if (node) node.level = engine.Roaming.level();
+      } else if (kind === 'zone') {
         const zoneState = s.adv.zone;
         const zone = zoneState && LegendZones.get(zoneState.id);
         if (!zone || !zoneState) throw new Error('Zone introuvable.');
@@ -128,10 +150,11 @@
       }
       if (!node) throw new Error('Adversaire introuvable.');
       Object.assign(s.adv, { nodes: [node], node: 0, battle: null, pending: null });
-      if (node.type === 'gym' && !node.gym || !node.team && (!node.id || !node.level)) throw new Error('Équipe adverse invalide.');
+      if (node.type === 'gym' && !node.gym || !node.team && (!(node.roamer || node.id) || !node.level)) throw new Error('Équipe adverse invalide.');
       /** @type {Array<[number, number]>} */
       const team = node.gym ? STORY.gymTeam(s.adv.chapter, node.gym) : node.team || [];
-      if (!team.length && node.id && node.level) team.push([node.id, node.level]);
+      const foe = node.roamer || node.id;
+      if (!team.length && foe && node.level) team.push([foe, node.level]);
       return { ...prepared, encounterId: id, champion: { id, name, chapter: s.adv.chapter, badge: '', region: '', chapterName: '',
         enemies: team.map(([id, level]) => ({ id, level, name: Game.DEX[id].name })) } };
     });
@@ -222,5 +245,5 @@
     } finally { Math.random = random; }
   }
 
-  globalThis.EncounterSimulator = { catalog, prepare, available, team, fight, interval: GymSimulator.interval };
+  globalThis.EncounterSimulator = { catalog, roaming, prepare, available, team, fight, interval: GymSimulator.interval };
 })();

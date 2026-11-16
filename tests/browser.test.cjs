@@ -241,7 +241,7 @@ async function main() {
     const tooltip = game.locator(`[id="${await badge.getAttribute('aria-describedby')}"]`);
     await badge.hover();
     await tooltip.waitFor({ state: 'visible' });
-    assert.equal(await tooltip.innerText(), 'Chance of defeating the Gym Leader, calculated with the current team at 100% HP.');
+    assert.equal(await tooltip.innerText(), 'Contre Morgane. Chance de victoire avec l’équipe en route à 100 % de PV.');
     assert.equal(await badge.getAttribute('aria-describedby'), await tooltip.getAttribute('id'));
     const tooltipStyle = await game.evaluate(() => {
       const ours = document.querySelector('.pc-tooltip:not(.pc-trainer-tooltip)');
@@ -310,6 +310,7 @@ async function main() {
     assert.equal(await game.locator('#pc-team-advisor').evaluate(element => element.getBoundingClientRect().right <= innerWidth), true);
     await game.setViewportSize({ width: 1920, height: 1080 });
     await game.screenshot({ path: path.join(ROOT, 'coach-team-after-mobile-preview.png') });
+    await game.addScriptTag({ path: path.join(ROOT, 'save-reader.js') });
     await game.addScriptTag({ path: path.join(ROOT, 'apply-team.js') });
     const nativeApply = await game.evaluate(async () => {
       const read = () => JSON.parse(localStorage.getItem('gachamon-save-v1'));

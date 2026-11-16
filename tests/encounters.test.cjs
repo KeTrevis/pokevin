@@ -289,3 +289,55 @@ test('special duels match native construction and combat, including seven legend
     assert.deepEqual(signature(actual), signature(expected), kind);
   }
 });
+
+test('roaming duels use the native wild node, exact enemy level and road team without editing the save', () => {
+  const ctx = simulator(), e = ctx.PokeCatchEngine, sim = ctx.EncounterSimulator, save = fixture(ctx, 14);
+  save.roam = { at: { 243: { ch: 14, until: NOW + 600000 } }, caught: [244, 245, 380, 381, 481] };
+  save.road = save.team.slice(0, 3);
+  const before = JSON.stringify(save);
+  const encounter = sim.roaming(save, 14, NOW);
+  assert.equal(encounter.name, 'Raikou');
+  const prepared = sim.prepare(save, encounter.id, NOW);
+  assert.deepEqual(Array.from(prepared.team, mon => mon.uid), save.road);
+  assert.equal(prepared.champion.enemies.length, 1);
+  assert.equal(prepared.champion.enemies[0].id, 243);
+  assert.equal(prepared.champion.enemies[0].level, 100);
+  assert.equal(prepared.state.adv.nodes[0].type, 'wild');
+  e.Game.sandbox(structuredClone(prepared.state), () => {
+    e.Adventure.step();
+    assert.equal(e.Game.S.adv.battle.enemies[0].id, 243);
+    assert.equal(e.Game.S.adv.battle.enemies[0].level, 100);
+  });
+  const trace = [];
+  const result = sim.fight(prepared, trace, 42);
+  assert.equal(typeof result.won, 'boolean');
+  assert.ok(trace.some(event => ['victory', 'defeat', 'fled'].includes(event.type)));
+  assert.equal(JSON.stringify(save), before);
+});
+
+test('roaming priority only applies to a present, unlocked and uncaught Pokémon', () => {
+  const ctx = simulator(), sim = ctx.EncounterSimulator, save = fixture(ctx, 14);
+  save.roam = { at: { 243: { ch: 14, until: NOW + 600000 } }, caught: [] };
+  assert.equal(sim.roaming(save, 14, NOW).id, 'roaming:14:243');
+  assert.equal(sim.roaming(save, 15, NOW), null);
+  assert.equal(sim.roaming(save, 14, NOW + 600000), null);
+  assert.throws(() => sim.prepare(save, 'roaming:14:243', NOW + 600000), /plus présent/);
+  save.roam.caught.push(243);
+  assert.equal(sim.roaming(save, 14, NOW), null);
+  save.roam.caught = []; save.adv.badges = [];
+  assert.equal(sim.roaming(save, 14, NOW), null);
+  delete save.roam;
+  assert.equal(sim.roaming(save, 14, NOW), null);
+});
+
+test('roaming team proposals optimize the roaming duel and preserve the real team', () => {
+  const ctx = simulator(), save = fixture(ctx, 14);
+  save.mons = save.mons.slice(0, 2); save.team = save.mons.map(mon => mon.uid);
+  save.roam = { at: { 243: { ch: 14, until: NOW + 600000 } }, caught: [244, 245, 380, 381, 481] };
+  const before = JSON.stringify(save);
+  const search = ctx.TeamOptimizer.search(save, 'roaming:14:243', NOW);
+  let step; do { step = search.next(); } while (!step.done);
+  assert.equal(step.value.champion, 'Raikou');
+  assert.ok(step.value.runs > 0);
+  assert.equal(JSON.stringify(save), before);
+});

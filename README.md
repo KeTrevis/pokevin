@@ -16,10 +16,12 @@ avec `manifest.json` à la racine.
 3. Cliquer sur **Charger l’extension non empaquetée**, puis choisir ce dossier
    `extension` (celui qui contient `manifest.json`).
 4. Ouvrir le jeu local avec `Jouer.cmd`, puis `http://localhost:8080`.
-5. Dans le jeu, ouvrir **Progression**, puis sélectionner un chapitre d’arène.
+5. Dans le jeu, ouvrir **Progression**, puis sélectionner un chapitre d’arène ou un chapitre avec un Pokémon errant.
 6. Le pourcentage apparaît automatiquement à côté du niveau conseillé et de la
    météo, dans la fiche du chapitre. Son infobulle reprend le style du jeu et
-   affiche uniquement « Chance of defeating the Gym Leader, calculated with the current team at 100% HP. ».
+   indique l’adversaire simulé, avec l’équipe en route à 100 % de PV.
+   Un Pokémon errant présent est prioritaire sur le champion, y compris pour la
+   proposition d’équipe. Après son départ ou sa capture, le champion redevient la cible.
    Le badge est uniquement informatif.
 7. Cliquer sur **✨ Proposer une équipe**, sous les badges, pour chercher une
    composition parmi les Pokémon disponibles dans l’équipe et le PC.
@@ -58,6 +60,33 @@ jeu. React est embarqué dans l’extension ; aucun CDN n’est utilisé.
 L’extension accepte aussi le domaine officiel. Si le nom du bundle ne correspond
 pas à celui du moteur embarqué, un avertissement orange signale que les résultats
 peuvent être inexacts ; la simulation et la recherche d’équipe restent disponibles.
+
+## Sélection multiple dans le PC
+
+Dans **Équipe/PC**, utiliser **Ctrl + clic** (ou **Cmd + clic** sur Mac) pour
+sélectionner ou désélectionner des Pokémon. Maintenir **Ctrl/Cmd + clic gauche**
+et balayer le PC pour inverser la sélection de chaque Pokémon survolé, une seule
+fois par geste. Relâcher Ctrl/Cmd arrête la sélection par balayage.
+Glisser un Pokémon sélectionné sans modificateur pour
+déplacer tout le groupe dans le PC, en conservant son ordre. Le repère indique
+l’insertion avant ou après le Pokémon survolé. **Échap** annule le drag et efface
+la sélection ; le bouton **Désélectionner** l’efface aussi.
+
+Comme pour le rangement natif, retirer les filtres avant de réorganiser le PC.
+Le déplacement passe par les contrôles du jeu, qui conserve la gestion de la
+sauvegarde. Les transferts vers l’équipe et les gestes tactiles restent natifs.
+Le clavier permet aussi de sélectionner avec **Ctrl/Cmd + Espace**, puis d’ouvrir
+une fiche avec **Entrée**.
+
+```sh
+PLAYWRIGHT_MODULE=/chemin/node_modules/playwright GAME_URL=http://127.0.0.1:8080/ node tests/pc-multiselect.browser.cjs
+GAME_DIR=/chemin/game node tests/firefox.test.cjs
+```
+
+Les tests couvrent les déplacements groupés dans les deux sens, une collection
+virtualisée de 260 Pokémon, le tri natif, l’annulation et la conservation des
+Pokémon et de l’équipe. La capture Chrome est `artifacts/pc-multiselect.png`
+(1920 × 1080).
 
 ## Ponte à la Pension
 
@@ -172,6 +201,19 @@ Aucune simulation ne modifie la sauvegarde.
 node --test tests/chapter-xp.test.cjs
 PLAYWRIGHT_MODULE=/chemin/node_modules/playwright GAME_DIR=/chemin/game node tests/chapter-xp.browser.cjs
 ```
+
+Les lecteurs de l’extension acceptent les sauvegardes historiques et le format
+compact `SaveWire` (`fmt: 2`) du jeu actuel, sans réécrire le stockage.
+Après téléchargement du frontend actuel et lancement de sa copie locale, vérifier
+le décodage natif, l’XP/h, l’arène, la recherche et l’application d’équipe avec :
+
+```sh
+GAME_SAVE_BUNDLE=/chemin/game/bundle/app.<hash>.js node --test tests/save-reader.test.cjs
+PLAYWRIGHT_MODULE=/chemin/node_modules/playwright GAME_URL=http://127.0.0.1:8080/ GAME_SAVE_BUNDLE=/chemin/game/bundle/app.<hash>.js node tests/current-game.browser.cjs
+```
+
+Ce test bloque les API de comptes, utilise une sauvegarde de test encodée par le
+frontend téléchargé et produit `artifacts/current-game-save-fixed.png` (1920 × 1080).
 
 ## Ce que mesure le résultat de victoire
 

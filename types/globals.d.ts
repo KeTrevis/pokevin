@@ -1,8 +1,10 @@
 declare var PokeCatchEngine: import('./domain').Engine;
+declare var PokeCatchSave: { parse(raw: string): import('./domain').Save };
 declare var GymSimulator: import('./domain').Simulator;
 declare var EncounterSimulator: {
   team(save: import('./domain').Save, id: string): string[];
   catalog(): import('./domain').Encounter[];
+  roaming(save: import('./domain').Save, chapter: number, now?: number): import('./domain').Encounter | null;
   prepare(save: import('./domain').Save, id: string, now?: number, teamIds?: string[]): import('./domain').PreparedFight;
   available(save: import('./domain').Save, id: string): Array<{ uid: string; group: string }>;
   fight(prepared: import('./domain').PreparedFight, trace?: import('./domain').CombatEvent[] | null, seed?: number): import('./domain').FightResult;

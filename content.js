@@ -13,7 +13,7 @@
     disposeDetached,
   } = globalThis.PokeCatchUI;
   const TOOLTIP =
-    "Chance of defeating the Gym Leader, calculated with the current team at 100% HP.";
+    "Chance de victoire avec l’équipe en route à 100 % de PV.";
   /** @param {number} value */
   const percent = (value) =>
     `${(value * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`;
@@ -45,6 +45,7 @@
 
   /** @type {import("./types/domain").ChapterVisit | undefined} */
   let visit;
+  let visitRoamer = '';
   /** @type {chrome.runtime.Port | undefined} */
   let xpPort;
   /** @type {string | undefined} */
@@ -174,7 +175,7 @@
 
   function renderChapterPreview() {
     if (document.hidden) return;
-    const panel = document.querySelector("#screen-map.active .pg-info .ch-det");
+    const panel = document.querySelector("#screen-map.active .pg-info .ch-det:not(.det-out)");
     const button = /** @type {HTMLButtonElement | null | undefined} */ (panel?.querySelector(".mp-go[data-go]"));
     const chips = panel?.querySelector(".mp-in > .mp-chips");
     const data = globalThis.PokeCatchChapterData;
@@ -207,11 +208,11 @@
 
   function badgeForPanel() {
     if (document.hidden) return null;
-    const panel = document.querySelector("#screen-map.active .pg-info .ch-det");
+    const panel = document.querySelector("#screen-map.active .pg-info .ch-det:not(.det-out)");
     const target = /** @type {HTMLButtonElement | null | undefined} */ (panel?.querySelector(".mp-go[data-go]"))?.dataset.go;
     const chips = panel?.querySelector(".mp-in > .mp-chips");
     if (!chips || !/^\d+$/.test(target || "")) return null;
-    if (gymChapters && !gymChapters.has(Number(target))) {
+    if (gymChapters && !gymChapters.has(Number(target)) && !roamingKey()) {
       chips.querySelector(`#${BADGE_ID}`)?.closest("pc-ui-root")?.remove();
       chips.parentElement
         ?.querySelector("#pc-team-advisor")
@@ -297,7 +298,7 @@
     if (!raw || raw.length > 16 * 1024 * 1024)
       throw new Error("Sauvegarde absente ou trop volumineuse.");
     if (raw !== lastRaw) {
-      save = JSON.parse(raw);
+      save = PokeCatchSave.parse(raw);
       lastRaw = raw;
     }
   }
@@ -369,11 +370,11 @@
     renderAdvisor(panel);
   }
 
-  /** @param {HTMLElement} badge @param {string} text @param {"pending" | "good" | "poor" | "result" | "error"} [state] */
-  function paint(badge, text, state = "pending") {
+  /** @param {HTMLElement} badge @param {string} text @param {"pending" | "good" | "poor" | "result" | "error"} [state] @param {string} [tooltip] */
+  function paint(badge, text, state = "pending", tooltip = TOOLTIP) {
     updateBadge(badge, {
       value: text,
-      tooltip: withVersionWarning(TOOLTIP),
+      tooltip: withVersionWarning(tooltip),
       tone: state === "good" ? "positive" : state === "poor" ? "negative" : state === "result" ? "caution" : "neutral",
     });
     if (badge.dataset.state !== state) badge.dataset.state = state;
@@ -390,6 +391,7 @@
         : result.probability < 0.4
           ? "poor"
           : "result",
+      `Contre ${result.champion}. ${TOOLTIP}`,
     );
     badge.dataset.champion = result.champion;
     if (badge.getAttribute("aria-busy") !== String(updating))
@@ -475,13 +477,20 @@
     return /^\d+$/.test(button.dataset.go || '') ? Number(button.dataset.go) : null;
   }
 
+  function roamingKey() {
+    const chip = /** @type {HTMLElement | null} */ (document.querySelector('#screen-map.active .pg-info .ch-det:not(.det-out) .rm-chip[data-roam-until]'));
+    return chip && Number(chip.dataset.roamUntil) > Date.now() ? `${chip.querySelector('img')?.getAttribute('src')}:${chip.dataset.roamUntil}` : '';
+  }
+
   function syncVisit() {
     const chapter = xpTarget();
-    if (chapter === (visit?.chapter ?? null)) return;
+    const roamer = roamingKey();
+    if (chapter === (visit?.chapter ?? null) && roamer === visitRoamer) return;
     cancel();
     cancelXP();
     cancelSearch();
     visit = chapter === null ? undefined : { chapter, xpStarted: false, gymStarted: false };
+    visitRoamer = roamer;
     advice = { status: "idle", chapter: typeof chapter === 'number' ? chapter : undefined };
   }
 

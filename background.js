@@ -56,17 +56,20 @@ chrome.runtime.onConnect.addListener(port => {
       const special = message.type === 'encounter' || message.type === 'encounter-optimize';
       if (!special && message.type !== 'xp' && (!('chapter' in message) || !Number.isInteger(message.chapter))) throw new Error('Chapitre invalide.');
       const xp = message.type === 'xp';
+      const roamer = xp || special ? null : EncounterSimulator.roaming(message.save, 'chapter' in message ? message.chapter : -1);
       const champion = xp || special ? null : GymSimulator.champions(message.save).find(item => item.chapter === ('chapter' in message ? message.chapter : -1));
-      if (!xp && !special && !champion) {
+      if (!xp && !special && !champion && !roamer) {
         send({ type: 'unavailable', requestId: current.requestId });
         stop(); return;
       }
       const optimizing = message.type === 'optimize' || message.type === 'encounter-optimize';
       if (special) {
-        if (optimizing && !/^(zone|event|story|league):/.test(message.encounterId)) throw new Error('Cette rencontre utilise une équipe imposée par le jeu.');
+        if (optimizing && !/^(zone|event|story|league|roaming):/.test(message.encounterId)) throw new Error('Cette rencontre utilise une équipe imposée par le jeu.');
         current.iterator = optimizing ? TeamOptimizer.search(message.save, message.encounterId) :
           estimate(EncounterSimulator.prepare(message.save, message.encounterId));
       } else if (xp) current.iterator = ChapterXP.estimate(message.save, message.chapter);
+      else if (roamer) current.iterator = optimizing ? TeamOptimizer.search(message.save, roamer.id) :
+        estimate(EncounterSimulator.prepare(message.save, roamer.id));
       else if (champion) current.iterator = optimizing ? TeamOptimizer.search(message.save, champion.id) :
         estimate(GymSimulator.prepare(message.save, champion.id));
       const iterator = current.iterator;

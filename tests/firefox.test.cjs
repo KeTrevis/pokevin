@@ -16,7 +16,7 @@ async function main() {
   save.trainer = { name: 'Firefox test', sprite: 'red', feats: {} };
   save.adv = { chapter: 0, unlocked: 0, badges: [], gifts: {}, kept: {}, layout: 6,
     nodes: [], node: 0, loops: [], speed: 1, runs: 0 };
-  save.mons = [1, 4, 7, 25, 16, 12, 3].map((id, i) => ({
+  save.mons = [1, 4, 7, 25, 16, 12, 3, 19, 21].map((id, i) => ({
     ...Game.makeMon(id, i === 6 ? 50 : 15, { shiny: false }), uid: `firefox-${i}`,
   }));
   save.team = save.mons.slice(0, 6).map(mon => mon.uid);
@@ -66,6 +66,7 @@ async function main() {
     console.log('Firefox:', session.capabilities.browserVersion);
     await command('webExtension.install', { extensionData: { type: 'path', path: ROOT } });
     const { context } = await command('browsingContext.create', { type: 'tab' });
+    await command('browsingContext.setViewport', { context, viewport: {width:1920,height:1080} });
     const navigate = url => command('browsingContext.navigate', { context, url, wait: 'complete' });
     const evaluate = async expression => {
       const result = await command('script.evaluate', { expression: `JSON.stringify(${expression})`, target: { context }, awaitPromise: true });
@@ -101,7 +102,55 @@ async function main() {
     assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('gachamon-save-v1')).team"), proposed);
     await evaluate("document.querySelector('#tabs [data-screen=team]').click()");
     assert.deepEqual(await evaluate("[...document.querySelectorAll('#team-slots > .slot.filled')].map(item=>item.dataset.uid)"), proposed);
-    console.log('Firefox passed: extension installation, real game badge, optimizer, native apply, saved and live team.');
+    const pc = await evaluate("[...document.querySelectorAll('#pc-grid .pc-cell:not(.ug-out)')].slice(0,3).map(el=>({uid:el.dataset.uid,x:Math.round(el.getBoundingClientRect().left+el.clientWidth/2),y:Math.round(el.getBoundingClientRect().top+el.clientHeight/2)}))");
+    assert.equal(pc.length, 3);
+    await command('browsingContext.activate', {context});
+    const click = async (point, control = false) => {
+      await command('input.performActions', { context, actions: [
+        { type: 'key', id: 'keys', actions: [{type:'keyDown',value:control?'\uE03D':'\uE000'}] },
+        { type: 'pointer', id: 'mouse', parameters: {pointerType:'mouse'}, actions: [
+          {type:'pointerMove',x:point.x,y:point.y,duration:0}, {type:'pointerDown',button:0}, {type:'pointerUp',button:0}] },
+      ] });
+      await command('input.releaseActions', {context});
+    };
+    // Cmd-drag toggles crossed cards once, even when the pointer crosses them again.
+    await command('input.performActions', {context, actions:[
+      {type:'key',id:'keys',actions:[{type:'keyDown',value:'\uE03D'}]},
+      {type:'pointer',id:'mouse',parameters:{pointerType:'mouse'},actions:[
+        {type:'pointerMove',x:pc[0].x,y:pc[0].y,duration:0},{type:'pointerDown',button:0},
+        {type:'pointerMove',x:pc[2].x,y:pc[2].y,duration:100},
+        {type:'pointerMove',x:pc[0].x,y:pc[0].y,duration:100},{type:'pointerUp',button:0}]}]});
+    await command('input.releaseActions',{context});
+    assert.equal(await evaluate("document.querySelectorAll('.pc-multi-selected').length"),3);
+    assert.equal(await evaluate("document.querySelectorAll('#modal-root.open').length"),0);
+    await evaluate("document.querySelector('.pc-multi-bar button').click()");
+    await click(pc[0], true); await click(pc[1], true);
+    assert.equal(await evaluate("document.querySelectorAll('.pc-multi-selected').length"), 2);
+    const pcBefore = await evaluate("JSON.parse(localStorage.getItem('gachamon-save-v1')).mons.map(mon=>mon.uid).sort()");
+    await command('input.performActions', {context, actions:[{type:'pointer',id:'mouse',parameters:{pointerType:'mouse'},actions:[
+      {type:'pointerMove',x:pc[0].x,y:pc[0].y,duration:0},{type:'pointerDown',button:0},
+      {type:'pointerMove',x:pc[2].x+20,y:pc[2].y,duration:300},{type:'pointerUp',button:0}]}]});
+    await command('input.releaseActions', {context});
+    await wait("!document.body.classList.contains('pc-multi-busy') && JSON.parse(localStorage.getItem('gachamon-save-v1')).pcSort === 'custom'");
+    const pcOrder = await evaluate("JSON.parse(localStorage.getItem('gachamon-save-v1')).pcOrder");
+    assert.deepEqual(pcOrder.slice(pcOrder.indexOf(pc[2].uid)+1,pcOrder.indexOf(pc[2].uid)+3),[pc[0].uid,pc[1].uid]);
+    assert.deepEqual(await evaluate("JSON.parse(localStorage.getItem('gachamon-save-v1')).mons.map(mon=>mon.uid).sort()"), pcBefore);
+    const roamingSave = structuredClone(save);
+    Object.assign(roamingSave.adv, { chapter: 14, unlocked: 25, badges: ['Maître Johto'], gifts: { starter: 1, 'starter-johto': 152 } });
+    roamingSave.travel = { to: ['johto'] };
+    roamingSave.roam = { at: { 243: { ch: 14, until: Date.now() + 600000 } }, caught: [244, 245, 380, 381, 481] };
+    await navigate(origin + '/seed');
+    await evaluate(`(() => {localStorage.setItem('gachamon-save-v1',${JSON.stringify(JSON.stringify(roamingSave))});return true;})()`);
+    await navigate(origin + '/');
+    await wait("!!document.querySelector('.ti-go')");
+    await evaluate("document.querySelector('.ti-go').click()");
+    await wait("!document.querySelector('.title-fx')");
+    await evaluate("document.querySelector('#tabs [data-screen=map]').click()");
+    await evaluate("document.querySelector('#map-root [data-ch=\"14\"]').click()");
+    await wait("document.querySelector('#pc-arena-chance')?.dataset.champion === 'Raikou'");
+    await evaluate("document.querySelector('#map-root [data-ch=\"15\"]').click()");
+    await wait("document.querySelector('.ch-det:not(.det-out) #pc-arena-chance')?.dataset.champion === 'Hector'");
+    console.log('Firefox passed: extension, optimizer, native apply, PC selection/drag, roaming chance and gym fallback.');
   } finally {
     if (command && socket?.readyState === WebSocket.OPEN) await command('browser.close').catch(() => {});
     socket?.close();
