@@ -6,8 +6,8 @@ import { createPortal } from 'react-dom';
 const contains = (element, target) => target instanceof Node && !!element?.contains(target);
 
 // A single DOM element is the trigger; the bubble uses the game's native classes.
-/** @param {{ content: import("react").ReactNode, children: import("react").ReactElement<import("react").HTMLAttributes<HTMLElement> & { ref?: import("react").Ref<HTMLElement> }>, interactive?: boolean, className?: string }} props */
-export function Tooltip({ content, children, interactive = false, className = '' }) {
+/** @param {{ content: import("react").ReactNode, children?: import("react").ReactElement<import("react").HTMLAttributes<HTMLElement> & { ref?: import("react").Ref<HTMLElement> }>, anchorElement?: HTMLElement, interactive?: boolean, className?: string }} props */
+export function Tooltip({ content, children, anchorElement, interactive = false, className = '' }) {
   const id = useId();
   const anchor = useRef(/** @type {HTMLElement | null} */ (null));
   const bubble = useRef(/** @type {HTMLDivElement | null} */ (null));
@@ -20,6 +20,46 @@ export function Tooltip({ content, children, interactive = false, className = ''
     else setOpen(false);
   };
   useLayoutEffect(() => () => clearTimeout(closeTimer.current), []);
+
+  // League rows belong to the game; attach the same tooltip without replacing their DOM.
+  useLayoutEffect(() => {
+    if (!anchorElement) return;
+    anchor.current = anchorElement;
+    const tabIndex = anchorElement.getAttribute('tabindex');
+    const description = anchorElement.getAttribute('aria-describedby');
+    anchorElement.tabIndex = 0;
+    anchorElement.setAttribute('aria-describedby', [description, id].filter(Boolean).join(' '));
+    const show = () => { clearTimeout(closeTimer.current); setOpen(true); };
+    /** @param {PointerEvent} event */
+    const enter = event => { if (event.pointerType === 'mouse') show(); };
+    const exit = () => { if (document.activeElement !== anchorElement) leave(); };
+    /** @param {FocusEvent} event */
+    const blur = event => { if (!contains(bubble.current, event.relatedTarget)) setOpen(false); };
+    /** @param {PointerEvent} event */
+    const touch = event => { if (event.pointerType === 'touch') setOpen(value => !value); };
+    /** @param {KeyboardEvent} event */
+    const key = event => { if (event.key === 'Escape') setOpen(false); };
+    anchorElement.addEventListener('pointerenter', enter);
+    anchorElement.addEventListener('pointerleave', exit);
+    anchorElement.addEventListener('focus', show);
+    anchorElement.addEventListener('blur', blur);
+    anchorElement.addEventListener('pointerdown', touch);
+    anchorElement.addEventListener('keydown', key);
+    return () => {
+      anchorElement.removeEventListener('pointerenter', enter);
+      anchorElement.removeEventListener('pointerleave', exit);
+      anchorElement.removeEventListener('focus', show);
+      anchorElement.removeEventListener('blur', blur);
+      anchorElement.removeEventListener('pointerdown', touch);
+      anchorElement.removeEventListener('keydown', key);
+      /** @type {Array<[string, string | null]>} */
+      const attributes = [['tabindex', tabIndex], ['aria-describedby', description]];
+      for (const [name, value] of attributes) {
+        if (value === null) anchorElement.removeAttribute(name);
+        else anchorElement.setAttribute(name, value);
+      }
+    };
+  }, [anchorElement, id, interactive]);
 
   useLayoutEffect(() => {
     if (!open || !anchor.current || !bubble.current) return;
@@ -48,7 +88,7 @@ export function Tooltip({ content, children, interactive = false, className = ''
   }, [open, content, children, interactive]);
 
   return <>
-    {cloneElement(children, {
+    {children ? cloneElement(children, {
       ref: element => {
         anchor.current = element;
         const ref = children.props.ref;
@@ -80,7 +120,7 @@ export function Tooltip({ content, children, interactive = false, className = ''
         children.props.onKeyDown?.(event);
         if (event.key === 'Escape') setOpen(false);
       },
-    })}
+    }) : <span hidden />}
     {createPortal(<div ref={bubble} id={id} role="tooltip" hidden={!open}
       className={`bag-tip info-tip-box ftip pc-tooltip ${className}`} style={{ ...position, ...(interactive ? { pointerEvents: 'auto' } : {}) }}
       onPointerEnter={() => clearTimeout(closeTimer.current)}

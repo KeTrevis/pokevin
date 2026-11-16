@@ -10,6 +10,8 @@
     updateAdvisor,
     mountPreview,
     updatePreview,
+    mountLeagueTooltip,
+    updateLeagueTooltip,
     disposeDetached,
   } = globalThis.PokeCatchUI;
   const TOOLTIP =
@@ -184,6 +186,20 @@
     const data = globalThis.PokeCatchChapterData;
     if (!chips || !data || !panel) return;
     const target = button?.dataset.go;
+    const mismatch = !matchesBundle(data.bundle);
+    if (target === 'L') {
+      const region = /** @type {HTMLElement | null} */ (document.querySelector('#map-root .rg.active[data-rg]'))?.dataset.rg;
+      const league = data.chapters.filter(chapter => chapter.league && chapter.region === region).flatMap(chapter => chapter.trainers);
+      for (const row of panel.querySelectorAll('.lg-mem')) {
+        if (!(row instanceof HTMLElement)) continue;
+        const sprite = row.querySelector('img')?.getAttribute('src')?.split('/').pop();
+        const trainer = league.find(trainer => sprite === `${trainer.sprite}.png`);
+        if (!trainer) continue;
+        const tooltip = row.querySelector('pc-ui-root > span');
+        if (tooltip) updateLeagueTooltip(tooltip, { trainer, versionMismatch: mismatch });
+        else mountLeagueTooltip(row, trainer, mismatch);
+      }
+    }
     const chapters = /^\d+$/.test(target || "")
       ? [data.chapters[Number(target)]].filter(Boolean)
       : [];
@@ -193,13 +209,15 @@
       existing?.closest("pc-ui-root")?.remove();
       return;
     }
-    const mismatch = !matchesBundle(data.bundle);
-    const key = `${target}:${data.bundle}:${mismatch}`;
+    const nativeLevel = chips.querySelector('.pg-lv');
+    const levelTone = ['ok', 'tight', 'under', 'lock'].find(tone => nativeLevel?.classList.contains(tone)) || '';
+    const key = `${target}:${data.bundle}:${mismatch}:${levelTone}`;
     if (existing?.dataset.chapter === key) return;
     const props = {
       id: "pc-chapter-preview",
       trainers,
       versionMismatch: mismatch,
+      levelTone,
     };
     if (existing) {
       updatePreview(existing, props);
