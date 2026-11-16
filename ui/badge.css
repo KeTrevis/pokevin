@@ -37,3 +37,6 @@ pc-ui-root { display: contents; }
 button.pc-badge { cursor: pointer; }
 button.pc-badge:hover { filter: brightness(1.08); }
 button.pc-badge:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+/* Keep the game's timeline layout and progress states; reveal only the assigned encounter. */
+#timeline .tl-node:has(.pc-timeline-roamer) > .tl-grass { display: none; }
+#timeline .tl-node img.pc-timeline-roamer { width: 28px; height: 28px; object-fit: contain; image-rendering: pixelated; }

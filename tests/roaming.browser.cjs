@@ -3,10 +3,16 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const vm = require('node:vm');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 require('../engine/core.js');
 const ROOT = path.resolve(__dirname, '..');
 async function main() {
+  const source = fs.readFileSync(process.env.GAME_SAVE_BUNDLE || path.join(ROOT, 'artifacts/game', require('../engine/version.json').bundle), 'utf8');
+  const start = source.indexOf('.SaveWire=function()');
+  const end = source.indexOf('(),function()', start);
+  assert.ok(start >= 0 && end > start);
+  const wire = vm.runInNewContext('(' + source.slice(start + '.SaveWire='.length, end + 2) + ')');
   const { Game } = PokeCatchEngine;
   const save = Game.freshState();
   save.trainer = { name: 'Roaming test', sprite: 'red', feats: {} };
@@ -35,6 +41,42 @@ async function main() {
       await page.waitForFunction(() => /%/.test(document.querySelector('#pc-arena-chance')?.textContent || ''), null, { timeout: 30000 });
     };
     await open(save);
+    const checkTimeline = async () => {
+      await page.waitForFunction(() => document.querySelector('#timeline .pc-timeline-roamer')?.getAttribute('alt') === 'Raikou');
+      const state = await page.evaluate(() => JSON.parse(localStorage.getItem('gachamon-save-v1')));
+      const index = state.adv.nodes.findIndex(node => node.roamer === 243);
+      assert.ok(index >= 0);
+      const step = page.locator('#timeline .tl-node').nth(index);
+      assert.equal(await step.locator('.pc-timeline-roamer').getAttribute('data-id'), '243');
+      assert.equal(await step.locator('.pc-timeline-roamer').getAttribute('title'), '');
+      assert.equal(await page.locator('#timeline .pc-timeline-roamer').count(), 1);
+      assert.equal(await step.locator('.tl-grass').evaluate(image => getComputedStyle(image).display), 'none');
+      return state;
+    };
+    const current = await checkTimeline();
+    const compact = wire.pack(wire.unpack(current));
+    assert.equal(compact.fmt, 2);
+    await page.evaluate(state => localStorage.setItem('gachamon-save-v1', JSON.stringify(state)), compact);
+    await checkTimeline();
+    await page.locator('#side-chapter').click();
+    await checkTimeline();
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('#screen-adventure')).opacity === '1' && !document.querySelector('#screen-map.active'));
+    await page.locator('#timeline .pc-timeline-roamer').evaluate(image => image.decode());
+    await page.evaluate(() => Promise.all([...document.images].filter(image => {
+      const rect = image.getBoundingClientRect();
+      return rect.width && rect.height && rect.top < innerHeight && rect.bottom > 0;
+    }).map(image => image.decode().catch(() => {}))));
+    const timelineScreenshot = path.join(ROOT, 'artifacts/roaming-timeline.png');
+    await page.screenshot({ path: timelineScreenshot });
+    const timelinePng = fs.readFileSync(timelineScreenshot);
+    assert.equal(timelinePng.readUInt32BE(16), 1920); assert.equal(timelinePng.readUInt32BE(20), 1080);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await checkTimeline();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.locator('#tabs [data-screen="map"]').click();
+    await page.locator('#map-root [data-ch="14"]').click();
+    await page.waitForFunction(() => document.querySelector('#pc-arena-chance')?.dataset.champion === 'Raikou');
     const badge = page.locator('#pc-arena-chance');
     assert.equal(await badge.getAttribute('data-champion'), 'Raikou');
     await badge.focus();
@@ -50,6 +92,7 @@ async function main() {
     assert.equal(await badge.getAttribute('data-champion'), 'Hector');
     save.roam.caught.push(243); delete save.roam.at[243];
     await open(save);
+    await page.waitForFunction(() => !document.querySelector('#timeline .pc-timeline-roamer'));
     assert.notEqual(await badge.getAttribute('data-champion'), 'Raikou');
     await badge.focus();
     await page.getByRole('tooltip').filter({ hasText: 'Contre Albert.' }).waitFor();
@@ -57,7 +100,19 @@ async function main() {
     save.roam.at[243] = { ch: 20, until: Date.now() + 600000 };
     await open(save, 20);
     assert.equal(await badge.getAttribute('data-champion'), 'Raikou', 'Roaming also gets a chance on a chapter without a gym');
+    // The map can move a roamer, but the already generated run still contains it.
+    current.roam.at[243] = { ch: 20, until: Date.now() + 600000 };
+    await open(current);
+    await checkTimeline();
+    await page.evaluate(() => document.querySelector('script[src*="app.c0081498f2.js"]').remove());
+    await page.waitForFunction(() => document.querySelector('#timeline .pc-timeline-roamer')?.getAttribute('title')?.includes('Version du jeu différente'));
+    assert.equal(await page.locator('#timeline .pc-timeline-roamer').count(), 1, 'Version differences must not hide the encounter');
+    current.roam.caught.push(243);
+    await open(current);
+    await page.waitForFunction(() => !document.querySelector('#timeline .pc-timeline-roamer'));
     console.log('Current frontend: roaming chance and optimization, ordinary gym and caught-roamer fallback passed.');
+    console.log('Timeline: exact saved encounter, native redraw, compact save, mobile, capture, map movement and version warning passed.');
+    console.log('Timeline screenshot:', timelineScreenshot);
     console.log('Screenshot:', screenshot);
   } finally { await context.close(); fs.rmSync(profile, { recursive: true, force: true }); }
 }

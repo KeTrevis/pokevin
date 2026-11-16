@@ -43,6 +43,7 @@ export interface AdventureState {
   event: SpecialEvent | null;
   zone: Partial<LegendZone> & { id: number } | null;
   tower: object | null;
+  league?: object | null;
   badges: string[];
   gifts: Record<string, boolean>;
   kept: Record<string, string[]>;

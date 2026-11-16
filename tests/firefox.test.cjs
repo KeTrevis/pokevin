@@ -85,6 +85,8 @@ async function main() {
     await wait("!!document.querySelector('.title-fx .ti-go')");
     await evaluate("document.querySelector('.title-fx .ti-go').click()");
     await wait("!document.querySelector('.title-fx')");
+    // The initial ordinary chapter must never show a roaming marker.
+    assert.equal(await evaluate("document.querySelectorAll('#timeline .pc-timeline-roamer').length"), 0);
     await evaluate("document.querySelector('#tabs [data-screen=map]').click()");
     await evaluate("document.querySelector('#map-root [data-ch=\"0\"]').click()");
     await wait("['good','poor','result'].includes(document.querySelector('#pc-arena-chance')?.dataset.state)");
@@ -148,6 +150,19 @@ async function main() {
     await evaluate("document.querySelector('#tabs [data-screen=map]').click()");
     await evaluate("document.querySelector('#map-root [data-ch=\"14\"]').click()");
     await wait("document.querySelector('#pc-arena-chance')?.dataset.champion === 'Raikou'");
+    await wait("document.querySelector('#timeline .pc-timeline-roamer')?.getAttribute('alt') === 'Raikou'");
+    assert.equal(await evaluate("document.querySelector('#timeline .pc-timeline-roamer').getAttribute('title')"), '');
+    assert.equal(await evaluate("(() => {const state=JSON.parse(localStorage.getItem('gachamon-save-v1'));const index=state.adv.nodes.findIndex(node=>node.roamer===243);return document.querySelectorAll('#timeline .tl-node')[index]?.querySelector('.pc-timeline-roamer')?.getAttribute('data-id');})()"), '243');
+    await evaluate("document.querySelector('#tabs [data-screen=adventure]').click()");
+    await wait("document.querySelector('#timeline .pc-timeline-roamer')?.getAttribute('alt') === 'Raikou'");
+    await wait("getComputedStyle(document.querySelector('#screen-adventure')).opacity === '1' && !document.querySelector('#screen-map.active')");
+    await evaluate("document.querySelector('#timeline .pc-timeline-roamer').decode().then(()=>true)");
+    const screenshot = await command('browsingContext.captureScreenshot', { context, origin: 'viewport' });
+    const png = Buffer.from(screenshot.data, 'base64');
+    assert.equal(png.readUInt32BE(16), 1920); assert.equal(png.readUInt32BE(20), 1080);
+    fs.mkdirSync(path.join(ROOT, 'artifacts'), { recursive: true });
+    fs.writeFileSync(path.join(ROOT, 'artifacts/roaming-timeline-firefox.png'), png);
+    await evaluate("document.querySelector('#tabs [data-screen=map]').click()");
     await evaluate("document.querySelector('#map-root [data-ch=\"15\"]').click()");
     await wait("document.querySelector('.ch-det:not(.det-out) #pc-arena-chance')?.dataset.champion === 'Hector'");
     console.log('Firefox passed: extension, optimizer, native apply, PC selection/drag, roaming chance and gym fallback.');

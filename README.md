@@ -30,6 +30,12 @@ Pour une mise à jour, remplacer les fichiers dans le même dossier, recharger
 l’extension dans la page des extensions, puis recharger l’onglet du jeu.
 Les estimations sont entièrement automatiques.
 
+Dans l’aventure, la timeline remplace l’herbe de la rencontre assignée à un Pokémon
+errant par son sprite. Le repère suit le parcours généré,
+même si le Pokémon change ensuite de chapitre sur la carte, et disparaît après sa capture.
+Le contrôle `tests/roaming.browser.cjs` utilise le frontend téléchargé ;
+`GAME_SAVE_BUNDLE` peut préciser le chemin de son bundle pour vérifier aussi le format compact.
+
 La clé publique `key` du manifeste fixe l’identifiant Chrome / Edge de Pokevin,
 même depuis un autre dossier ou avec une nouvelle version. Ne pas la régénérer
 entre les releases. Les copies installées avant cet ajout ont des identifiants
