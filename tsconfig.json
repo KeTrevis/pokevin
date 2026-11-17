@@ -37,6 +37,8 @@
     "plugin/encounter-simulator.js",
     "plugin/encounter-content.js",
     "plugin/automation.js",
+    "plugin/sdk/**/*.js",
+    "plugin/scripts/**/*.js",
     "plugin/editor-loader.js",
     "plugin/ui/script-editor.js"
   ]

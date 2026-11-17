@@ -2,7 +2,6 @@
 // WXT calls this after the engine modules have loaded.
 globalThis.PokevinBackground = function () {
 const versionReady = fetch(chrome.runtime.getURL('engine/version.json')).then(response => response.json());
-const RUNS = 100;
 let lastKeepAlive = -Infinity;
 
 chrome.runtime.onMessage.addListener((message, _sender, respond) => {
@@ -15,21 +14,10 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
   }
 });
 
-/** @param {import("./types/domain").PreparedFight} prepared */
-function* estimate(prepared) {
-  let wins = 0;
-  for (let done = 1; done <= RUNS; done++) {
-    wins += +(prepared.encounterId ? EncounterSimulator : GymSimulator).fight(prepared).won;
-    yield { done, runs: RUNS };
-  }
-  return { wins, runs: RUNS, probability: wins / RUNS,
-    interval: GymSimulator.interval(wins, RUNS), champion: prepared.champion.name,
-    pendingTeam: prepared.pendingTeam, now: prepared.now };
-}
-
 chrome.runtime.onConnect.addListener(port => {
+  if (port.name === 'pokevin-sdk') { PokevinBattleSDK.connect(port); return; }
   if (!['arena-coach', 'arena-optimizer', 'chapter-xp', 'encounter-coach'].includes(port.name)) return;
-  /** @typedef {{ requestId: number, iterator?: Generator<import("./types/domain").Progress | import("./types/domain").OptimizationProgress, import("./types/domain").XPResult | import("./types/domain").GymResult | import("./types/domain").OptimizationResult | void, unknown> }} Job */
+  /** @typedef {{ requestId: number, iterator?: Generator<import("./types/domain").Progress | import("./types/domain").OptimizationProgress, import("./types/domain").XPResult | import("./types/domain").GymResult | import("./types/domain").OptimizationResult | void, unknown> | AsyncGenerator<import("./types/domain").Progress, import("./types/domain").GymResult | void, unknown> }} Job */
   /** @type {Job | null} */
   let job = null;
   /** @type {number | undefined} */
@@ -65,15 +53,15 @@ chrome.runtime.onConnect.addListener(port => {
       if (special) {
         if (optimizing && !/^(zone|event|story|league|roaming):/.test(message.encounterId)) throw new Error('Cette rencontre utilise une équipe imposée par le jeu.');
         current.iterator = optimizing ? TeamOptimizer.search(message.save, message.encounterId) :
-          estimate(EncounterSimulator.prepare(message.save, message.encounterId));
+          PokevinVictoryChance(PokevinBattleSDK.battles, message.save, message.encounterId);
       } else if (xp) current.iterator = ChapterXP.estimate(message.save, message.chapter);
       else if (roamer) current.iterator = optimizing ? TeamOptimizer.search(message.save, roamer.id) :
-        estimate(EncounterSimulator.prepare(message.save, roamer.id));
+        PokevinVictoryChance(PokevinBattleSDK.battles, message.save, roamer.id);
       else if (champion) current.iterator = optimizing ? TeamOptimizer.search(message.save, champion.id) :
-        estimate(GymSimulator.prepare(message.save, champion.id));
+        PokevinVictoryChance(PokevinBattleSDK.battles, message.save, champion.id);
       const iterator = current.iterator;
       if (!iterator) return;
-      const batch = () => {
+      const batch = async () => {
         if (job !== current) return;
         try {
           // Firefox does not reset its event-page idle timer for port messages.
@@ -83,7 +71,10 @@ chrome.runtime.onConnect.addListener(port => {
           }
           const deadline = performance.now() + 30;
           let step;
-          do { step = iterator.next(); }
+          do {
+            step = await iterator.next();
+            if (job !== current) return;
+          }
           while (!step.done && performance.now() < deadline);
           if (!step.done) {
             send({ ...step.value, type: optimizing ? 'optimization-progress' : 'progress', requestId: current.requestId });
@@ -97,7 +88,7 @@ chrome.runtime.onConnect.addListener(port => {
           stop();
         }
       };
-      batch();
+      await batch();
     } catch (error) {
       if (job === current) {
         send({ type: 'error', requestId: current.requestId, message: (error instanceof Error ? error.message : String(error)) });

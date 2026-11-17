@@ -16,7 +16,14 @@ aside{min-width:0;overflow-y:auto;border-right:1px solid #333a52;padding:24px 12
 h1{font-family:"Jersey 15",system-ui,sans-serif;font-size:24px;margin:0 0 16px;font-weight:400}
 #new-script{width:100%;text-align:left;background:transparent;border:1px solid #454d67;font-size:18px}
 #new-script:hover:enabled{background:#252a3d}
-#script-list{display:flex;flex-direction:column;gap:4px}
+#script-list{display:flex;flex-direction:column;gap:24px}
+.script-group{min-width:0}
+.script-group h2{position:relative;display:flex;align-items:center;gap:8px;margin:0 0 8px;padding:0 12px;color:#9aa3bb;font-size:16px;font-weight:400}
+.script-group-info{padding:0;background:transparent;color:inherit;font:16px system-ui,sans-serif;line-height:24px;min-width:24px;cursor:help}
+.script-group-info:hover{color:#eef1f8}
+.script-group-tooltip{visibility:hidden;position:absolute;top:100%;left:0;width:100%;z-index:20;padding:10px 12px;border:1px solid #454d67;border-radius:4px;background:#30394d;color:#eef1f8;font-size:18px;line-height:1.25;box-shadow:0 4px 12px #080b1466}
+.script-group-info:hover + .script-group-tooltip,.script-group-info:focus + .script-group-tooltip,.script-group-tooltip:hover{visibility:visible}
+.script-group-list{display:flex;flex-direction:column;gap:4px}
 #script-list .script-select{display:flex;align-items:center;gap:8px;width:100%;min-height:42px;text-align:left;background:transparent;border-radius:0;border-left:2px solid transparent;padding:10px 12px}
 #script-list .script-select:hover{background:#252a3d}
 #script-list .script-select[aria-current]{background:#ffcb0510;border-left-color:#ffcb05;color:#ffdb54}
@@ -42,12 +49,15 @@ footer p{margin:0 0 0 auto;text-align:right}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @media(max-width:700px){
   body{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
-  aside{padding:12px;border-right:0;border-bottom:1px solid #333a52;overflow:hidden}
+  aside{padding:12px;border-right:0;border-bottom:1px solid #333a52;overflow:visible}
   .library-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 0 8px}
   h1{font-size:22px;margin:0}
   #new-script,.actions button{min-height:40px}
   #new-script{width:auto;font-size:17px;padding:7px 10px}
-  #script-list{flex-direction:row;overflow-x:auto;gap:0}
+  #script-list{flex-direction:row;gap:12px}
+  .script-group{flex:1}
+  .script-group h2{margin-bottom:4px}
+  .script-group-list{flex-direction:row;gap:0;overflow-x:auto}
   .script-row{flex-shrink:0}
   #script-list .script-select{width:auto;max-width:220px;flex-shrink:0;min-height:40px;border-left:0;border-bottom:2px solid transparent;padding:8px 12px}
   #script-list .script-select[aria-current]{border-bottom-color:#ffcb05}

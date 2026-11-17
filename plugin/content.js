@@ -1,7 +1,6 @@
 // @ts-check
 (() => {
   "use strict";
-  const BADGE_ID = "pc-arena-chance";
   const {
     versionWarning,
     mountBadge,
@@ -14,27 +13,14 @@
     updateLeagueTooltip,
     disposeDetached,
   } = globalThis.PokeCatchUI;
-  const TOOLTIP =
-    "Chance de victoire avec l’équipe en route à 100 % de PV.";
-  /** @param {number} value */
-  const percent = (value) =>
-    `${(value * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`;
-  /** @type {chrome.runtime.Port | undefined} */
-  let port;
-  /** @type {string | undefined} */
-  let bundle;
   /** @type {Set<number> | undefined} */
   let gymChapters;
-  let requestId = 0;
-  /** @type {{ requestId: number, chapter: number } | null} */
-  let active = null;
   /** @type {number | undefined} */
   let scheduled;
   /** @type {string | undefined} */
   let lastRaw;
   /** @type {import("./types/domain").Save} */
   let save;
-  let lastPing = 0, retryAt = 0;
   /** @type {number | null} */
   let polling = null;
   /** @type {chrome.runtime.Port | undefined} */
@@ -132,6 +118,7 @@
           if (xpPort !== connection) return;
           if (message.type === "ready") {
             xpBundle = message.bundle;
+            gymChapters = new Set(message.chapters);
             schedule();
             return;
           }
@@ -227,35 +214,23 @@
     if (preview) preview.dataset.chapter = key;
   }
 
-  function badgeForPanel() {
+  function advisorPanel() {
     if (document.hidden) return null;
     const panel = document.querySelector("#screen-map.active .pg-info .ch-det:not(.det-out)");
     const target = /** @type {HTMLButtonElement | null | undefined} */ (panel?.querySelector(".mp-go[data-go]"))?.dataset.go;
     const chips = panel?.querySelector(".mp-in > .mp-chips");
     if (!chips || !/^\d+$/.test(target || "")) return null;
     if (gymChapters && !gymChapters.has(Number(target)) && !roamingKey()) {
-      chips.querySelector(`#${BADGE_ID}`)?.closest("pc-ui-root")?.remove();
       chips.parentElement
         ?.querySelector("#pc-team-advisor")
         ?.closest("pc-ui-root")
         ?.remove();
       return null;
     }
-    let badge = /** @type {HTMLElement | null} */ (chips.querySelector(`#${BADGE_ID}`));
-    if (!badge) {
-      badge = mountBadge(chips, {
-        id: BADGE_ID,
-        icon: "⚔️",
-        label: "Victoire",
-        value: "Calcul…",
-        tooltip: TOOLTIP,
-      });
-      if (visit?.gym && !("error" in visit.gym)) showResult(badge, visit.gym);
-    }
-    return { badge, chips, chapter: Number(target) };
+    return { chips, chapter: Number(target) };
   }
 
-  function renderAdvisor(panel = badgeForPanel()) {
+  function renderAdvisor(panel = advisorPanel()) {
     if (!panel || advice.chapter !== panel.chapter) return;
     const props = {
       id: "pc-team-advisor",
@@ -279,7 +254,7 @@
   }
 
   async function applyTeam() {
-    const panel = badgeForPanel();
+    const panel = advisorPanel();
     if (
       !panel ||
       !advice.result ||
@@ -289,7 +264,6 @@
       return;
     const proposal = advice.result.team;
     applying = true;
-    cancel();
     advice = { ...advice, status: "applying" };
     renderAdvisor(panel);
     try {
@@ -306,7 +280,7 @@
   }
 
   function refreshVersionWarning() {
-    const compatible = matchesBundle(bundle || xpBundle);
+    const compatible = matchesBundle(xpBundle);
     if (versionMismatch !== !compatible) {
       versionMismatch = !compatible;
       renderAdvisor();
@@ -325,7 +299,7 @@
   }
 
   function searchTeam() {
-    const panel = badgeForPanel();
+    const panel = advisorPanel();
     if (!panel || advice.status === "searching") return;
     try {
       readSave();
@@ -335,7 +309,7 @@
       advice = { chapter: panel.chapter, status: "searching", teams: 0 };
       connection.onMessage.addListener(/** @param {import("./types/domain").OptimizationReply} message */ (message) => {
         if (optimizationPort !== connection || (!("requestId" in message) || message.requestId !== id)) return;
-        if (badgeForPanel()?.chapter !== advice.chapter) {
+        if (advisorPanel()?.chapter !== advice.chapter) {
           cancelSearch();
           schedule();
           return;
@@ -391,100 +365,6 @@
     renderAdvisor(panel);
   }
 
-  /** @param {HTMLElement} badge @param {string} text @param {"pending" | "good" | "poor" | "result" | "error"} [state] @param {string} [tooltip] */
-  function paint(badge, text, state = "pending", tooltip = TOOLTIP) {
-    updateBadge(badge, {
-      value: text,
-      tooltip: withVersionWarning(tooltip),
-      tone: state === "good" ? "positive" : state === "poor" ? "negative" : state === "result" ? "caution" : "neutral",
-    });
-    if (badge.dataset.state !== state) badge.dataset.state = state;
-    if (state === "error") badge.setAttribute("aria-busy", "false");
-  }
-
-  /** @param {HTMLElement} badge @param {import("./types/domain").GymResult} result @param {boolean} [updating] */
-  function showResult(badge, result, updating = false) {
-    paint(
-      badge,
-      percent(result.probability),
-      result.probability >= 0.65
-        ? "good"
-        : result.probability < 0.4
-          ? "poor"
-          : "result",
-      `Contre ${result.champion}. ${TOOLTIP}`,
-    );
-    badge.dataset.champion = result.champion;
-    if (badge.getAttribute("aria-busy") !== String(updating))
-      badge.setAttribute("aria-busy", String(updating));
-  }
-
-  /** @param {HTMLElement} badge */
-  function showPending(badge) {
-    paint(badge, "Calcul…");
-    if (badge.getAttribute("aria-busy") !== "true") badge.setAttribute("aria-busy", "true");
-  }
-
-  function cancel() {
-    if (active) {
-      try {
-        port?.postMessage({ type: "cancel" });
-      } catch {}
-    }
-    active = null;
-  }
-
-  function connect() {
-    if (port) return;
-    try {
-      const connection = chrome.runtime.connect({ name: "arena-coach" });
-      port = connection;
-      connection.onMessage.addListener(/** @param {import("./types/domain").GymReply} message */ (message) => {
-        if (port !== connection) return;
-        if (message.type === "ready") {
-          bundle = message.bundle;
-          gymChapters = new Set(message.chapters);
-          schedule();
-          return;
-        }
-        if (!active || !("requestId" in message) || message.requestId !== active.requestId) return;
-        const panel = badgeForPanel();
-        if (message.type === "result") {
-          if (visit) visit.gym = message;
-          if (panel && panel.chapter === active.chapter)
-            showResult(panel.badge, message);
-          active = null;
-        } else if (message.type === "error" || message.type === "unavailable") {
-          if (panel && panel.chapter === active.chapter) {
-            if (message.type === "unavailable")
-              panel.badge.closest("pc-ui-root")?.remove();
-            else paint(panel.badge, "Indisponible", "error");
-          }
-          if (visit) visit.gym = { error: message.message || "Ce chapitre n’a pas de champion d’arène." };
-          active = null;
-        } else if (
-          message.type === "progress" &&
-          panel && panel.chapter === active.chapter
-        ) {
-          showPending(panel.badge);
-        }
-      });
-      connection.onDisconnect.addListener(() => {
-        void chrome.runtime.lastError;
-        if (port !== connection) return;
-        port = undefined;
-        if (visit?.gymStarted && !visit.gym) visit.gym = { error: "Le calcul a été interrompu. Rouvre ce chapitre pour réessayer." };
-        active = null;
-        retryAt = Date.now() + 3000;
-      });
-    } catch {
-      port = undefined;
-      const panel = badgeForPanel();
-      if (panel) paint(panel.badge, "Recharger", "error");
-      retryAt = Date.now() + 3000;
-    }
-  }
-
   /** @returns {import('./types/domain').XPTarget | null} */
   function xpTarget() {
     const panel = document.querySelector('#screen-map.active .pg-info .mp-det:not(.det-out)');
@@ -507,10 +387,9 @@
     const chapter = xpTarget();
     const roamer = roamingKey();
     if (chapter === (visit?.chapter ?? null) && roamer === visitRoamer) return;
-    cancel();
     cancelXP();
     cancelSearch();
-    visit = chapter === null ? undefined : { chapter, xpStarted: false, gymStarted: false };
+    visit = chapter === null ? undefined : { chapter, xpStarted: false };
     visitRoamer = roamer;
     advice = { status: "idle", chapter: typeof chapter === 'number' ? chapter : undefined };
   }
@@ -561,60 +440,28 @@
     if (applying || document.hidden) return;
     renderRoamingTimeline();
     syncVisit();
-    if (bundle || xpBundle) refreshVersionWarning();
+    if (xpBundle) refreshVersionWarning();
     renderChapterPreview();
     updateXP();
-    const panel = badgeForPanel();
+    const panel = advisorPanel();
     if (!panel || !visit) {
-      cancel();
       cancelSearch();
       return;
     }
-    const { badge, chapter } = panel;
+    const { chapter } = panel;
     if (advice.chapter !== chapter) {
       cancelSearch();
       advice = { chapter, status: "idle" };
     }
     renderAdvisor(panel);
-    if (active && active.chapter !== chapter) cancel();
-    if (visit.gym) {
-      if ("error" in visit.gym) paint(badge, "Indisponible", "error");
-      else showResult(badge, visit.gym);
-      return;
-    }
-    if (!port || !bundle) {
-      showPending(badge);
-      if (Date.now() >= retryAt) connect();
-      return;
-    }
-    if (Date.now() - lastPing > 20000) {
+    if (advice.applied && advice.result) {
       try {
-        port.postMessage({ type: "ping" });
-        lastPing = Date.now();
-      } catch {
-        return;
-      }
-    }
-    try {
-      readSave();
-      if (
-        advice.applied && advice.result &&
-        JSON.stringify(save.team) !==
-          JSON.stringify(advice.result?.team.map((mon) => mon.uid))
-      ) {
-        advice = { ...advice, applied: false };
-        renderAdvisor(panel);
-      }
-      visit.save ||= structuredClone(save);
-      if (visit.gymStarted) return;
-      visit.gymStarted = true;
-      showPending(badge);
-      active = { requestId: ++requestId, chapter };
-      port.postMessage({ type: "run", requestId, chapter, save: visit.save });
-    } catch (error) {
-      cancel();
-      if (visit) visit.gym = { error: (error instanceof Error ? error.message : String(error)) };
-      paint(badge, "Indisponible", "error");
+        readSave();
+        if (JSON.stringify(save.team) !== JSON.stringify(advice.result.team.map(mon => mon.uid))) {
+          advice = { ...advice, applied: false };
+          renderAdvisor(panel);
+        }
+      } catch {}
     }
   }
 
@@ -657,13 +504,10 @@
       attributeFilter: ["class"],
     });
     polling = setInterval(() => update(), 2000);
-    retryAt = 0;
-    lastPing = 0;
     schedule();
   }
 
   function stop() {
-    cancel();
     cancelSearch();
     cancelXP();
     visit = undefined;
@@ -671,10 +515,6 @@
     xpPort = undefined;
     xpBundle = undefined;
     xpConnection?.disconnect();
-    const connection = port;
-    port = undefined;
-    bundle = undefined;
-    connection?.disconnect();
     observer.disconnect();
     if (polling !== null) clearInterval(polling);
     polling = null;

@@ -8,8 +8,8 @@
   /** @type {Adventure | undefined} */
   let previous;
   let changing = false;
-  /** @typedef {{id: string, name: string, code: string}} Script */
-  /** @typedef {{scripts: Script[], selectedId: string}} Library */
+  /** @typedef {{id: string, name: string, code: string, autoStart?: boolean, bundled?: boolean}} Script */
+  /** @typedef {{scripts: Script[], selectedId: string, examplesVersion?: number, exampleCode?: string}} Library */
   /** @type {Library | undefined} */
   let library;
   /** @typedef {{active: boolean, unsubscribes: Set<() => void>, id: string, code: string}} Scope */
@@ -116,7 +116,15 @@
       scope?.unsubscribes.add(unsubscribe);
       return unsubscribe;
     };
+    const cleanups = scope?.unsubscribes || consoleCleanups;
     return Object.freeze({
+      ...PokevinCreateUI(cleanups, () => !scope || scope.active),
+      battles: PokevinCreateBattles(cleanups, () => !scope || scope.active),
+      saves: Object.freeze({ read() {
+        const raw = localStorage.getItem('gachamon-save-v1');
+        if (!raw || raw.length > 16 * 1024 * 1024) throw new Error('Sauvegarde absente ou trop volumineuse.');
+        return PokeCatchSave.parse(raw);
+      } }),
       changeChapter,
       events: Object.freeze({
         onChapterStarted: (/** @type {Listener} */ callback) => subscribe('ChapterStarted', callback),
@@ -127,14 +135,22 @@
         if (scope) {
           if (!scope.active) return;
           stopScript(scope.id);
+          setAutoStart(scope.id, false);
         } else {
-          for (const id of running.keys()) stopScript(id);
+          for (const id of running.keys()) { stopScript(id); setAutoStart(id, false); }
           for (const group of Object.values(listeners)) group.clear();
+          for (const cleanup of consoleCleanups) cleanup();
         }
         showStatus('Callbacks arrêtés.');
       },
     });
   }
+  /** @type {Set<() => void>} */
+  const consoleCleanups = new Set();
+  window.addEventListener('pagehide', () => {
+    for (const id of running.keys()) stopScript(id);
+    for (const cleanup of consoleCleanups) cleanup();
+  });
   const api = createApi();
   Object.defineProperty(window, 'pokevin', { value: api, configurable: true });
 
@@ -154,19 +170,75 @@
       const saved = /** @type {Library} */ (JSON.parse(raw));
       if (!saved || !Array.isArray(saved.scripts) || saved.scripts.some(script => !script || typeof script.id !== 'string' || !script.id || typeof script.name !== 'string' || typeof script.code !== 'string') ||
         new Set(saved.scripts.map(script => script.id)).size !== saved.scripts.length) throw new Error('La liste de scripts enregistrée est invalide.');
-      library = { scripts: saved.scripts, selectedId: saved.scripts.some(script => script.id === saved.selectedId) ? saved.selectedId : saved.scripts[0]?.id ?? '' };
+      library = { scripts: saved.scripts, examplesVersion: saved.examplesVersion, exampleCode: saved.exampleCode,
+        selectedId: saved.scripts.some(script => script.id === saved.selectedId) ? saved.selectedId : saved.scripts[0]?.id ?? '' };
     } else {
       const legacy = localStorage.getItem('pokevin-script');
       const scripts = legacy !== null ? [{ id: crypto.randomUUID(), name: 'Mon script', code: legacy }] : [];
-      saveLibrary({ scripts, selectedId: scripts[0]?.id ?? '' });
+      library = { scripts, selectedId: scripts[0]?.id ?? '' };
+    }
+    if ((library.examplesVersion || 0) < 2) {
+      const example = PokevinExampleScript;
+      const found = library.scripts.some(script => script.id === example.id);
+      const scripts = library.scripts.map(script => {
+        if (script.id !== example.id) return script;
+        if (script.code === example.legacyCode || script.code === example.code)
+          return { ...script, name: example.name, code: example.code, autoStart: true };
+        return { ...script, autoStart: false };
+      });
+      if (!found) scripts.push({ id: example.id, name: example.name, code: example.code, autoStart: true });
+      saveLibrary({ scripts, selectedId: library.selectedId || example.id });
+    }
+    const example = PokevinExampleScript;
+    if (library.examplesVersion !== 4 || library.exampleCode !== example.code ||
+      !library.scripts.some(script => script.id === example.id && script.bundled && script.code === example.code && script.name === example.name)) {
+      saveLibrary({ ...library, scripts: library.scripts.flatMap(script => {
+        if (script.id !== example.id) return [{ ...script, bundled: false }];
+        const unmodified = script.code === example.code || script.code === library?.exampleCode || example.previousCodes.includes(script.code);
+        const updated = { ...script, name: example.name, code: example.code, bundled: true };
+        return unmodified ? [updated] : [updated, {
+          id: crypto.randomUUID(), name: `${script.name.slice(0, 60)} (copie personnelle)`, code: script.code, autoStart: false,
+        }];
+      }).concat(library.scripts.some(script => script.id === example.id) ? [] : [{
+        id: example.id, name: example.name, code: example.code, bundled: true, autoStart: false,
+      }]) });
     }
   }
   /** @param {Library} next */
   function saveLibrary(next) {
     // Commit in memory only after storage succeeds; keep the legacy draft as a backup.
+    next = { ...next, examplesVersion: 4, exampleCode: PokevinExampleScript.code };
     localStorage.setItem('pokevin-scripts', JSON.stringify(next));
     library = next;
   }
+  /** @param {string} id @param {boolean} enabled */
+  function setAutoStart(id, enabled) {
+    if (library && id === PokevinExampleScript.id)
+      saveLibrary({ ...library, scripts: library.scripts.map(script => script.id === id ? { ...script, autoStart: enabled } : script) });
+  }
+  /** @param {Script} script */
+  function execute(script) {
+    stopScript(script.id);
+    const scope = { id: script.id, code: script.code, active: true, unsubscribes: new Set() };
+    running.set(script.id, scope);
+    try {
+      const result = new Function('pokevin', '\"use strict\";\n' + script.code)(createApi(scope));
+      showStatus(scope.active ? 'Script exécuté.' : 'Callbacks arrêtés.');
+      Promise.resolve(result).catch(error => {
+        if (scope.active) stopScript(scope.id);
+        report(error);
+      });
+      return true;
+    } catch (error) { stopScript(scope.id); report(error); return false; }
+  }
+  function startAutomaticScripts() {
+    try {
+      if (!library) loadLibrary();
+      const script = library?.scripts.find(script => script.id === PokevinExampleScript.id);
+      if (script?.autoStart && !running.has(script.id)) execute(script);
+    } catch (error) { report(error); }
+  }
+
   function activateScripts() {
     document.querySelectorAll('.screen').forEach(screen => screen.classList.toggle('active', screen.id === 'screen-pokevin-scripts'));
     document.querySelectorAll('#side [data-screen]').forEach(button => button.classList.toggle('active', /** @type {HTMLElement} */ (button).dataset.screen === 'pokevin-scripts'));
@@ -223,6 +295,15 @@
       }
       const script = library.scripts.find(item => item.id === id);
       if (!script) return;
+      if (script.id === PokevinExampleScript.id) {
+        if (action === 'select') saveLibrary({ ...library, selectedId: script.id });
+        if (action === 'run') {
+          setAutoStart(script.id, true);
+          sendEditor('run-result', { requestId, success: execute(script) });
+        }
+        if (action === 'stop') { stopScript(script.id); setAutoStart(script.id, false); showStatus('Callbacks arrêtés.'); }
+        return;
+      }
       if (action === 'delete') {
         const index = library.scripts.indexOf(script);
         const scripts = library.scripts.filter(item => item.id !== id);
@@ -239,20 +320,11 @@
         sendEditor('saved');
       }
       if (action === 'run' && typeof code === 'string') {
-        stopScript(script.id);
-        const scope = { id: script.id, code, active: true, unsubscribes: new Set() };
-        running.set(script.id, scope);
-        try {
-          const result = new Function('pokevin', '\"use strict\";\n' + code)(createApi(scope));
-          showStatus(scope.active ? 'Script exécuté.' : 'Callbacks arrêtés.');
-          Promise.resolve(result).catch(error => {
-            if (scope.active) stopScript(scope.id);
-            report(error);
-          });
-          sendEditor('run-result', {requestId, success: true});
-        } catch (error) { stopScript(scope.id); report(error); sendEditor('run-result', {requestId, success: false}); }
+        setAutoStart(script.id, true);
+        sendEditor('run-result', { requestId, success: execute({ ...script, code }) });
       }
-      if (action === 'stop') { stopScript(script.id); showStatus('Callbacks arrêtés.'); }
+      if (action === 'stop') { stopScript(script.id); setAutoStart(script.id, false); showStatus('Callbacks arrêtés.'); }
+
 
     } catch (error) {
       if (action === 'run') sendEditor('run-result', {requestId, success: false});
@@ -283,4 +355,6 @@
   }
   new MutationObserver(mount).observe(document.documentElement, { childList: true, subtree: true });
   mount();
+  startAutomaticScripts();
+  window.addEventListener('pageshow', event => { if (event.persisted) startAutomaticScripts(); });
 })();

@@ -1,7 +1,7 @@
 # Pokevin
 
 Extension Chrome / Edge / Firefox, version 0.4.6. Moteur embarqué synchronisé avec
-le build du jeu `b05c8cc201` (bundle `app.c0081498f2.js`).
+le build du jeu `690d382390` (bundle `app.9637252c96.js`).
 
 ## Développement local avec WXT
 
@@ -47,6 +47,7 @@ notamment pour choisir le binaire du navigateur. Voir la
 ```sh
 npm run test:dev
 PLAYWRIGHT_MODULE=/chemin/node_modules/playwright node tests/dev-server.browser.cjs
+PLAYWRIGHT_MODULE=/chemin/node_modules/playwright GAME_DIR=artifacts/game node tests/script-updates.browser.cjs
 ```
 
 Le test navigateur démarre lui-même WXT dans un profil Chrome temporaire, sans
@@ -54,6 +55,8 @@ installation manuelle par le test. Il vérifie le jeu réel, Monaco, les scripts
 le rechargement et les simulations. Il nécessite l’absence de configuration
 locale `web-ext.config.ts` et restaure le fichier CSS modifié pendant le test.
 Les captures sont sous `artifacts/wxt-dev-*.png`.
+Le test `script-updates.browser.cjs` vérifie les mises à jour des scripts via WXT
+sur une copie isolée des sources, avec le frontend téléchargé dans `GAME_DIR`.
 
 ## Installation
 
@@ -133,12 +136,98 @@ Il est chargé uniquement à l’ouverture de Scripts.
 Modifier un script actif sauvegarde le code sans remplacer la version exécutée : l’icône **↻ Relancer** apparaît à côté de Stop. Avant de changer de script ou de quitter cet écran, une fenêtre propose de relancer, de continuer avec l’ancienne version ou d’annuler. Revenir au code exécuté ou arrêter le script retire cet avertissement.
 Les noms, le code et le dernier script sélectionné sont enregistrés localement
 pendant l’édition. L’ancien script unique est récupéré automatiquement sous le nom
-**Mon script**. Il faut relancer le script après un rechargement. Plusieurs scripts peuvent tourner en parallèle. Relancer un script remplace uniquement ses propres abonnements.
-**Arrêter**, supprimer un script actif ou appeler `pokevin.stop()` dans ce script retire seulement ses callbacks. Depuis la console, `window.pokevin.stop()` arrête tous les scripts et abonnements. Les scripts actifs sont indiqués dans la liste ; quitter
+**Mon script**. Les scripts personnels doivent être relancés après un rechargement. Le calculateur de victoire embarqué redémarre automatiquement, sauf s’il a été arrêté ou supprimé. Plusieurs scripts peuvent tourner en parallèle. Relancer un script remplace uniquement ses propres abonnements.
+**Arrêter**, supprimer un script actif ou appeler `pokevin.stop()` dans ce script retire ses callbacks, ses badges et ses sessions de simulation. Depuis la console, `window.pokevin.stop()` arrête tous les scripts et abonnements. Les scripts actifs sont indiqués dans la liste ; quitter
 l’onglet laisse leurs callbacks actifs. Un changement de chapitre lancé depuis cet
 écran conserve l’éditeur affiché.
 Ces commandes ne peuvent pas interrompre une boucle JavaScript infinie ni annuler
 les timers ou effets créés directement par le script.
+
+Le SDK expose aussi les briques de simulation dans la console et dans les scripts :
+
+```js
+// Le SDK ne calcule pas le pourcentage : le script choisit les essais et les compte.
+async function chanceDeVictoire(chapterId) {
+  const save = pokevin.saves.read();
+  const battle = await pokevin.battles.prepare(save, chapterId);
+  try {
+    let wins = 0;
+    const runs = 100;
+    for (let i = 0; i < runs; i++) {
+      wins += Number((await battle.fight()).won);
+    }
+    return { percent: 100 * wins / runs, champion: battle.champion.name };
+  } finally {
+    battle.close();
+  }
+}
+return chanceDeVictoire(0).then(console.log);
+```
+
+`saves.read()` décode une copie de la sauvegarde actuelle, y compris le format compact.
+`battles.catalog(save)` fournit les champions, les rencontres et le nom du bundle
+embarqué ; `battles.roaming(save, chapterId, now?)` identifie l’errant présent.
+`battles.prepare(save, target, { now?, teamIds? })` accepte un numéro de chapitre
+(errant prioritaire, sinon champion) ou un identifiant exact du catalogue.
+Le combat préparé expose `champion`, `team`, `pendingTeam` et `now`.
+Chaque `fight(seed?)` repart de la même copie à 100 % de PV et renvoie
+`won`, `progress`, `actions` et `survivors` ; les règles des modes spéciaux
+(PV conservés à la Tour, alliés de raid, équipes dédiées) restent celles du jeu.
+Une graine permet de reproduire un combat. `battles.interval(wins, runs)`
+fournit l’intervalle de Wilson. Toutes les opérations de simulation sont asynchrones.
+Fermer les combats avec `close()` ; arrêter un script ferme également ses sessions.
+Les simulations ne modifient jamais la sauvegarde réelle.
+
+Le **Calculateur de victoire** visible dans Scripts est le script qui injecte le badge
+sur les fiches de chapitre et de ligue. Pour une ligue, le taux représente la
+réussite du circuit entier, jusqu’au dernier combat. Il utilise les mêmes primitives de simulation que les
+scripts personnels, puis choisit le texte, les seuils et les couleurs du badge.
+Les scripts embarqués sont consultables en lecture seule : seul leur état activé
+ou désactivé peut être modifié. Le nom et le code suivent toujours la source du
+dépôt, y compris après un rechargement WXT en dev. Les anciennes modifications
+personnelles sont conservées dans une copie séparée, éditable et arrêtée.
+Arrêter un script retire ses badges et conserve ce choix après rechargement.
+Les scripts personnels restent modifiables et supprimables.
+
+Les scripts peuvent afficher leurs propres badges de chapitre :
+
+```js
+pokevin.chapters.onViewed((view, { ui, battles }) => {
+  if (!view) return;
+  const badge = ui.chapterBadge(view.chapterId, {
+    text: 'Mon résultat',
+    color: '#8b5cf6',
+    tooltip: 'Le texte et la couleur viennent de mon script.',
+  });
+  // Après un calcul :
+  badge.update({ text: 'Mon résultat : 80 %', color: '#42c978' });
+});
+```
+
+`chapters.onViewed(callback)` reçoit immédiatement la fiche courante, puis chaque
+changement ; `null` indique sa fermeture. `chapterId` est un numéro de chapitre,
+`league:<région>` ou `zone:<espèce>`. La fonction renvoie une désinscription.
+Son second argument fournit `ui` et `battles` liés à cette visite : quitter la fiche,
+se désinscrire ou arrêter le script retire automatiquement ses badges et ferme ses
+simulations. Un ancien résultat ne peut donc plus modifier le badge de la nouvelle
+visite. Utiliser ces API dans les callbacks asynchrones ; les API globales
+`pokevin.ui` et `pokevin.battles` restent liées à la durée du script entier.
+`ui.chapterBadge(chapterId, { text, color?, tooltip?, busy?, id?, data?, gameBundle? })`
+renvoie `{ update(patch), remove() }`. Le SDK place le badge dans les informations du
+chapitre et le réattache si le jeu reconstruit la fiche. Le texte est du texte brut ;
+la couleur accepte toute couleur CSS valide, y compris `var(--green)`.
+Les tooltips sont accessibles au clavier et au toucher. Les badges et abonnements du
+SDK sont retirés à l’arrêt du script ; ceux des autres scripts restent actifs.
+`gameBundle` ajoute l’avertissement habituel dans le tooltip si le jeu a changé de
+version, sans bloquer le calcul ni l’affichage.
+
+Le calcul commun est dans [`plugin/scripts/victory-chance.js`](plugin/scripts/victory-chance.js)
+et le comportement du badge dans [`plugin/scripts/victory-badge.js`](plugin/scripts/victory-badge.js).
+Ces sources sont assemblées pour l’éditeur et exécutées par son runtime ; le code
+natif de la fiche ne calcule ni ne dessine plus le badge de victoire. Les rencontres
+spéciales utilisent encore le calcul commun dans leur contrôleur existant.
+L’XP/h conserve pour l’instant son contrôleur actuel ; l’API de badges peut accueillir
+son affichage depuis un script. Tous ces scripts et le moteur sont embarqués.
 
 L’API `window.pokevin` est aussi disponible dans la console du jeu :
 
@@ -273,7 +362,7 @@ y compris quand le nom du dresseur est encore « ??? ». Cela ne découvre pas l
 dresseur et ne modifie pas la sauvegarde. L’aperçu des champions n’apparaît pas
 sur les chapitres verrouillés ; les équipes de la Ligue restent consultables.
 
-Les données viennent du bundle officiel `app.c0081498f2.js` consulté le 16 novembre
+Les données viennent du bundle officiel `app.9637252c96.js` consulté le 17 novembre
 2026. Une différence de version affiche un avertissement dans l’infobulle, sans
 bloquer l’équipe. Pour actualiser ces données depuis le bundle original téléchargé :
 
@@ -381,7 +470,7 @@ visite. Les chapitres sans champion d’arène peuvent afficher les duels des re
 
 ## Rencontres spéciales
 
-Le moteur embarqué vient du bundle officiel `app.c0081498f2.js` (build `b05c8cc201`),
+Le moteur embarqué vient du bundle officiel `app.9637252c96.js` (build `690d382390`),
 récupéré le 4 novembre 2026. Une différence de version reste un simple avertissement.
 
 - **Zones légendaires** : dans Progression, ouvrir la fiche du légendaire, par exemple
@@ -420,7 +509,7 @@ Les résultats sont conservés pendant la visite de la fiche. Changer de rencont
 fermer puis rouvrir la fiche, ou appliquer une proposition lance une nouvelle estimation.
 
 ```sh
-GAME_BUNDLE=/chemin/app.c0081498f2.js node --test tests/simulator.test.cjs tests/optimizer.test.cjs tests/chapter-xp.test.cjs tests/encounters.test.cjs
+GAME_BUNDLE=/chemin/app.9637252c96.js node --test tests/simulator.test.cjs tests/optimizer.test.cjs tests/chapter-xp.test.cjs tests/encounters.test.cjs
 PLAYWRIGHT_MODULE=/chemin/node_modules/playwright GAME_DIR=/chemin/game node tests/encounters.browser.cjs
 ```
 
@@ -492,7 +581,7 @@ le ZIP existant. Aucun secret à configurer.
 Depuis la racine du dépôt, avec Python 3 et Node 22 ou ultérieur :
 
 ```powershell
-python tools/build_extension_engine.py /chemin/app.c0081498f2.js --build b05c8cc201
+python tools/build_extension_engine.py /chemin/app.9637252c96.js --build 690d382390
 node --test tests/simulator.test.cjs tests/optimizer.test.cjs
 node tests/firefox.test.cjs
 ```

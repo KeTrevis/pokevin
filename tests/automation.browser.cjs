@@ -35,7 +35,10 @@ async function main() {
       state.lastTick=Date.now();localStorage.setItem('gachamon-save-v1',JSON.stringify(state));
       localStorage.setItem('pokecatch.lang','fr');localStorage.setItem('pokecatch-guide-seen',JSON.stringify(['adv','catch','team','league']));
     },wire.pack(save));
-    await page.evaluate(code => localStorage.setItem('pokevin-script', code), LEGACY_SCRIPT);
+    await page.evaluate(code => {
+      localStorage.setItem('pokevin-script', code);
+      localStorage.setItem('pokevin-scripts', JSON.stringify({scripts:[{id:'legacy-script',name:'Mon script',code}],selectedId:'legacy-script',examplesVersion:1}));
+    }, LEGACY_SCRIPT);
     await page.goto(process.env.GAME_URL || 'http://127.0.0.1:8087/');
     await page.waitForFunction(()=>document.querySelector('#timeline .tl-node') || document.querySelector('.ti-go')).catch(async error=>{ console.log(await page.locator('body').innerText()); await page.screenshot({path:'artifacts/debug.png'});throw error; }); 
     if (await page.locator('.ti-go').count()) await page.locator('.ti-go').click();
@@ -61,6 +64,45 @@ async function main() {
     await frame.locator('.monaco-editor').waitFor();
     assert.equal(await page.locator('dialog').count(), 0);
     assert.equal(await page.locator('.screen.active').getAttribute('id'), 'screen-pokevin-scripts');
+    // Existing scripts survive the one-time addition of the readable, runnable example.
+    const exampleName = 'Calculateur de victoire';
+    assert.equal(await frame.locator('#builtin-scripts .script-row').count(), 1);
+    assert.equal(await frame.locator('#custom-scripts .script-row').count(), 1);
+    assert.equal(await frame.locator('#builtin-scripts .script-label').innerText(), exampleName);
+    assert.equal(await frame.locator('#custom-scripts .script-label').innerText(), 'Mon script');
+    await frame.locator('#builtin-heading button').hover();
+    await frame.getByRole('tooltip').filter({hasText:'Scripts embarqués'}).waitFor();
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('#screen-pokevin-scripts')).opacity === '1');
+    await page.screenshot({path:path.join(ROOT, 'artifacts/scripts-builtin-tooltip.png')});
+    const tooltipPNG = fs.readFileSync(path.join(ROOT, 'artifacts/scripts-builtin-tooltip.png'));
+    assert.equal(tooltipPNG.readUInt32BE(16),1920); assert.equal(tooltipPNG.readUInt32BE(20),1080);
+    await frame.locator('#custom-heading button').focus();
+    await frame.locator('#editor').hover({position:{x:600,y:400}});
+    await frame.locator('#builtin-tooltip').waitFor({state:'hidden'});
+    await frame.getByRole('tooltip').filter({hasText:'Scripts personnels'}).waitFor();
+    await frame.getByRole('button', {name: exampleName, exact: true}).click();
+    const example = await page.evaluate(() => JSON.parse(localStorage.getItem('pokevin-scripts')).scripts.find(script => script.id === 'example-victory-chance'));
+    assert.match(example.code, /battles.prepare/);
+    assert.match(example.code, /pokevin.saves.read/);
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pokevin-scripts')).scripts.length), 2);
+    await frame.getByRole('button', {name:'Arrêter', exact:true}).click();
+    await frame.getByRole('button', {name:'Exécuter', exact:true}).click();
+    await page.locator('#tabs [data-screen="map"]').click();
+    await page.locator('#map-root [data-ch="14"]').click();
+    await page.waitForFunction(() => /%/.test(document.querySelector('#pc-arena-chance')?.textContent));
+    assert.equal(await page.locator('#pc-arena-chance').getAttribute('data-champion'), 'Raikou');
+    await page.evaluate(() => { globalThis.chapterViewCount = 0; globalThis.offChapterView = pokevin.chapters.onViewed(() => { chapterViewCount++; }); });
+    await page.waitForTimeout(2200);
+    assert.equal(await page.evaluate(() => chapterViewCount), 1, 'The roaming countdown must not restart the chapter script');
+    await page.evaluate(() => offChapterView());
+    await page.locator('#pokevin-scripts').click();
+    await frame.getByRole('button', {name:'Arrêter', exact:true}).click();
+    await page.screenshot({path: path.join(ROOT, 'artifacts/victory-chance-example.png')});
+    const examplePNG = fs.readFileSync(path.join(ROOT, 'artifacts/victory-chance-example.png'));
+    assert.equal(examplePNG.readUInt32BE(16), 1920); assert.equal(examplePNG.readUInt32BE(20), 1080);
+    assert.equal(await frame.getByRole('textbox', {name:'Nom du script'}).getAttribute('readonly'),'');
+    assert.equal(await frame.locator('.script-row').filter({hasText:exampleName}).locator('.delete-script').count(),0);
+    await frame.getByRole('button', {name:'Mon script',exact:true}).click();
     await frame.getByRole('textbox', {name:'Nom du script'}).fill('Relancer les roamings');
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('pokevin-scripts')).scripts[0].name === 'Relancer les roamings');
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pokevin-scripts')).scripts[0].code), LEGACY_SCRIPT);
@@ -88,6 +130,16 @@ async function main() {
         return library.scripts.find(script => script.id === library.selectedId)?.code === code;
       }, code).catch(async error => { console.log('Saved library',await page.evaluate(()=>localStorage.getItem('pokevin-scripts')));console.log('Editor',await frame.locator('body').innerText());throw error;});
     };
+    await setCode(`globalThis.reopenSdk = () => pokevin.battles.prepare(pokevin.saves.read(), 14);
+return reopenSdk().then(async battle => {
+  globalThis.scriptBattle = battle;
+  globalThis.scriptFight = await battle.fight(42);
+});`);
+    await frame.getByRole('button',{name:'Exécuter',exact:true}).click();
+    await page.waitForFunction(() => typeof window.scriptFight?.won === 'boolean');
+    await frame.getByRole('button',{name:'Arrêter',exact:true}).click();
+    await assert.rejects(() => page.evaluate(() => scriptBattle.fight()), /fermée/);
+    await assert.rejects(() => page.evaluate(() => reopenSdk()), /arrêté/);
     await setCode('globalThis.firstStarts = 0; pokevin.events.onChapterStarted(() => { globalThis.firstStarts++; });');
     await frame.getByRole('button',{name:'Exécuter',exact:true}).click();
     await frame.getByRole('button',{name:'Arrêter',exact:true}).waitFor();
@@ -122,7 +174,8 @@ async function main() {
     await frame.getByRole('button',{name:'Arrêter',exact:true}).waitFor();
     await frame.locator('.script-row').filter({hasText:'À supprimer'}).hover();
     await frame.getByRole('button',{name:'Supprimer À supprimer',exact:true}).click();
-    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('pokevin-scripts')).scripts.length===2);
+    await frame.locator('#delete-dialog').getByRole('button', {name:'Supprimer', exact:true}).click();
+    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('pokevin-scripts')).scripts.length===3);
     assert.equal(await frame.locator('#script-name').inputValue(),'Mon deuxième script');
     await frame.getByRole('button',{name:'Arrêter',exact:true}).waitFor();
     assert.equal(await frame.locator('.is-running').count(),2);
@@ -144,7 +197,7 @@ async function main() {
     await frame.getByRole('textbox',{name:'Nom du script'}).waitFor();
     await frame.locator('#new-script:not([disabled])').waitFor();
     assert.equal(await frame.getByRole('textbox',{name:'Nom du script'}).inputValue(),'Mon deuxième script');
-    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pokevin-scripts')).scripts.length),2);
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pokevin-scripts')).scripts.length),3);
     assert.equal(await frame.locator('.is-running').count(),0);
     const version1 = 'globalThis.runningVersion = 1; pokevin.events.onChapterStarted(() => {});';
     const version2 = 'globalThis.runningVersion = 2; pokevin.events.onChapterStarted(() => {});';
@@ -240,21 +293,30 @@ async function main() {
     await page.setViewportSize({width:390,height:844});
     assert.equal(await page.evaluate(()=>document.querySelector('#screen-pokevin-scripts iframe').getBoundingClientRect().right<=innerWidth),true);
     await editorFrame.waitForFunction(() => document.body.scrollWidth <= innerWidth);
+    await frame.locator('#custom-heading button').focus();
+    await frame.locator('#custom-tooltip').waitFor();
+    assert.equal(await frame.locator('#custom-tooltip').evaluate(tooltip => {
+      const rect = tooltip.getBoundingClientRect();
+      return rect.left >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight
+        && document.elementFromPoint(rect.x + rect.width / 2, rect.bottom - 4) === tooltip;
+    }), true, 'The mobile tooltip stays within the viewport and is not clipped by the sidebar');
+    await frame.locator('#editor textarea').focus();
     await page.setViewportSize({width:1920,height:1080});
     const countBeforeCancel = await frame.locator('.script-row').count();
-    await frame.locator('.script-row').first().hover();
+    await frame.locator('.script-row').filter({has:frame.locator('.delete-script')}).first().hover();
     await frame.locator('.delete-script').first().click();
     await frame.getByRole('button', {name:'Annuler', exact:true}).click();
     assert.equal(await frame.locator('.script-row').count(), countBeforeCancel);
     while (await frame.locator('.delete-script').count()) {
-      await frame.locator('.script-row').first().hover();
+      await frame.locator('.script-row').filter({has:frame.locator('.delete-script')}).first().hover();
       const before = await frame.locator('.script-row').count();
       await frame.locator('.delete-script').first().click();
       await frame.getByRole('button', {name:'Supprimer', exact:true}).click();
       await page.waitForFunction(before=>JSON.parse(localStorage.getItem('pokevin-scripts')).scripts.length===before-1,before);
     }
-    await frame.locator('#empty:not([hidden])').waitFor();
-    assert.equal(await frame.locator('#run').isDisabled(),true);
+    assert.equal(await frame.locator('.script-row').count(),1);
+    assert.equal(await frame.locator('#run').isDisabled(),false);
+    assert.equal(await frame.locator('.delete-script').count(),0);
     await frame.getByRole('button',{name:'+ Nouveau script',exact:true}).click();
     await frame.locator('#run:not([disabled])').waitFor();
     await page.evaluate(() => document.querySelector('#tabs [data-screen=adventure]').click());

@@ -22,3 +22,13 @@ declare var PokeCatchChapterData: { bundle: string; chapters: Array<{ region: st
 declare function importScripts(...urls: string[]): void;
 
 declare var PokevinBackground: () => void;
+
+declare var PokevinBattleSDK: { battles: import('./battles').Battles; connect(port: chrome.runtime.Port): void };
+declare var PokevinCreateBattles: (cleanups: Set<() => void>, active?: () => boolean) => import('./battles').Battles;
+declare var PokevinVictoryChance: import('./battles').VictoryScript;
+declare var PokevinExampleScript: { id: string; name: string; code: string; previousCodes: string[]; legacyCode: string };
+declare var PokevinCreateUI: (cleanups: Set<() => void>, active: () => boolean) => import('./script-ui').ScriptUI;
+
+declare module '*?raw' { const source: string; export default source; }
+
+declare var pokevin: import('./script-ui').ScriptAPI;

@@ -4,6 +4,8 @@ import '../simulator.js';
 import '../encounter-simulator.js';
 import '../optimizer.js';
 import '../chapter-xp.js';
+import '../sdk/battles.js';
+import '../scripts/victory-chance.js';
 import '../background.js';
 
 export default defineBackground(() => PokevinBackground());

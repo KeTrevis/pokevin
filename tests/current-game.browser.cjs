@@ -44,6 +44,31 @@ async function main() {
     await page.reload();
     await page.locator('.title-fx .ti-go').click();
     await page.locator('.title-fx').waitFor({ state: 'detached' });
+    const sdk = await page.evaluate(async () => {
+      const snapshot = pokevin.saves.read();
+      const before = JSON.stringify(snapshot);
+      const catalog = await pokevin.battles.catalog(snapshot);
+      const battle = await pokevin.battles.prepare(snapshot, 0, { now: 1794787200000 });
+      const first = await battle.fight(42);
+      const second = await battle.fight(42);
+      let wins = 0;
+      for (let run = 0; run < 5; run++) wins += Number((await battle.fight()).won);
+      battle.close();
+      let closed;
+      try { await battle.fight(); } catch (error) { closed = error.message; }
+      const stopped = await pokevin.battles.prepare(snapshot, catalog.champions[0].id);
+      stopped.close();
+      let stoppedError;
+      try { await stopped.fight(); } catch (error) { stoppedError = error.message; }
+      return { first, second, probability: wins / 5, closed, stoppedError,
+        unchanged: JSON.stringify(snapshot) === before, bundle: catalog.bundle };
+    });
+    assert.deepEqual(sdk.first, sdk.second);
+    assert.ok(sdk.probability >= 0 && sdk.probability <= 1);
+    assert.match(sdk.closed, /fermée/);
+    assert.match(sdk.stoppedError, /fermée/);
+    assert.equal(sdk.unchanged, true);
+    assert.equal(sdk.bundle, require('../engine/version.json').bundle);
     const loaded = await page.evaluate(() => JSON.parse(localStorage.getItem('gachamon-save-v1')));
     const compact = wire.pack(wire.unpack(loaded));
     assert.equal(compact.fmt, 2);
@@ -86,6 +111,131 @@ async function main() {
     const png = fs.readFileSync(screenshot);
     assert.equal(png.readUInt32BE(16), 1920);
     assert.equal(png.readUInt32BE(20), 1080);
+    // The chapter UI is generic: scripts own their text, color and lifecycle.
+    await page.evaluate(() => {
+      globalThis.customBadge = pokevin.ui.chapterBadge(0, {
+        id: 'custom-chapter-badge', text: '<b>Mon XP/h</b>', color: '#123456', tooltip: 'Mon tooltip',
+      });
+    });
+    const custom = page.locator('#custom-chapter-badge');
+    assert.equal(await custom.innerText(), '<b>Mon XP/h</b>');
+    assert.equal(await custom.locator('b').evaluate(node => getComputedStyle(node).color), 'rgb(18, 52, 86)');
+    await custom.focus();
+    await page.getByRole('tooltip').filter({hasText:'Mon tooltip'}).waitFor();
+    await custom.press('Escape');
+    await page.evaluate(() => customBadge.update({text:'XP/h : 123', color:'#42c978'}));
+    assert.equal(await custom.innerText(), 'XP/h : 123');
+    await page.evaluate(() => customBadge.remove());
+    assert.equal(await custom.count(), 0);
+
+    await page.evaluate(() => {
+      globalThis.visits = [];
+      globalThis.offVisit = pokevin.chapters.onViewed(async (view, scope) => {
+        if (!view) return;
+        const visit = { scope, badge: scope.ui.chapterBadge(view.chapterId, { id: 'visit-badge', text: 'Pending' }) };
+        visits.push(visit);
+        visit.battle = await scope.battles.prepare(pokevin.saves.read(), view.chapterId);
+        await new Promise(resolve => { visit.finish = resolve; });
+        visit.badge.update({ text: 'Finished' });
+      });
+    });
+    await page.waitForFunction(() => visits[0]?.finish);
+    await page.locator('#pokevin-scripts').click();
+    await page.waitForFunction(() => !document.querySelector('#visit-badge'));
+    const cancelled = await page.evaluate(async () => {
+      const old = visits[0];
+      const errors = [];
+      try { await old.battle.fight(); } catch (error) { errors.push(error.message); }
+      try { await old.scope.battles.prepare(pokevin.saves.read(), 0); } catch (error) { errors.push(error.message); }
+      return errors;
+    });
+    assert.match(cancelled[0], /fermée/); assert.match(cancelled[1], /arrêté/);
+    await page.locator('#tabs [data-screen="map"]').click();
+    await page.locator('#map-root [data-ch="0"]').click();
+    await page.waitForFunction(() => visits[1]?.finish);
+    await page.evaluate(() => visits[0].finish());
+    assert.equal(await page.locator('#visit-badge').innerText(), 'Pending');
+    await page.evaluate(() => visits[1].finish());
+    await page.waitForFunction(() => document.querySelector('#visit-badge')?.textContent === 'Finished');
+    await page.evaluate(() => offVisit());
+    assert.equal(await page.locator('#visit-badge').count(), 0);
+
+    await page.locator('#pokevin-scripts').click();
+    const frame = page.frameLocator('#screen-pokevin-scripts iframe');
+    await frame.getByRole('button', {name:'Arrêter', exact:true}).click();
+    await page.locator('#tabs [data-screen="map"]').click();
+    await page.locator('#map-root [data-ch="0"]').click();
+    await page.waitForTimeout(2200);
+    assert.equal(await page.locator('#pc-arena-chance').count(), 0, 'Stopping the listed script removes the real badge');
+    assert.equal(await page.locator('#pc-chapter-xp').count(), 1);
+
+    await page.locator('#pokevin-scripts').click();
+    const original = await page.evaluate(() => JSON.parse(localStorage.getItem('pokevin-scripts')).scripts[0].code);
+    assert.match(original,/async function updateVictoryBadge/);
+    assert.ok((await frame.locator('.view-lines').innerText()).length > 100, 'The bundled source remains readable');
+    assert.equal(await frame.locator('.squiggly-error').count(), 0, 'The bundled script has no editor type errors');
+    assert.equal(await frame.getByRole('textbox', {name:'Nom du script'}).getAttribute('readonly'),'');
+    assert.equal(await frame.locator('.delete-script').count(),0);
+    await frame.locator('.monaco-editor textarea').focus();
+    await page.keyboard.press('Meta+a');
+    await page.keyboard.insertText('throw new Error("must stay read-only")');
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pokevin-scripts')).scripts[0].code),original);
+    // Parent-side enforcement also rejects forged editor messages.
+    await frame.locator('body').evaluate((_, code) => {
+      parent.postMessage({type:'pokevin-editor',action:'save',id:'example-victory-chance',name:'Changed',code},location.href.includes('?')?new URL(location.href).searchParams.get('origin'):'');
+      parent.postMessage({type:'pokevin-editor',action:'delete',id:'example-victory-chance'},new URL(location.href).searchParams.get('origin'));
+    }, 'throw new Error("must be ignored")');
+    await frame.getByRole('button', {name:'Exécuter', exact:true}).click();
+    await page.locator('#tabs [data-screen="map"]').click();
+    await page.locator('#map-root [data-ch="0"]').click();
+    await page.waitForFunction(() => /Victoire .*%/.test(document.querySelector('#pc-arena-chance')?.textContent));
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pokevin-scripts')).scripts[0].code),original);
+    await page.locator('#pokevin-scripts').click();
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('#screen-pokevin-scripts')).opacity === '1');
+    await page.screenshot({path:path.join(ROOT, 'artifacts/bundled-script-readonly.png')});
+    const readonlyPNG = fs.readFileSync(path.join(ROOT, 'artifacts/bundled-script-readonly.png'));
+    assert.equal(readonlyPNG.readUInt32BE(16),1920); assert.equal(readonlyPNG.readUInt32BE(20),1080);
+    await page.evaluate(() => pokevin.stop());
+    await page.waitForTimeout(2200);
+    assert.equal(await page.locator('#pc-arena-chance').count(), 0);
+    await page.reload();
+    await page.locator('.title-fx .ti-go').click();
+    await page.locator('.title-fx').waitFor({state:'detached'});
+    await page.locator('#tabs [data-screen="map"]').click();
+    await page.locator('#map-root [data-ch="0"]').click();
+    await page.waitForTimeout(2200);
+    assert.equal(await page.locator('#pc-arena-chance').count(), 0, 'Stopped state survives reload');
+    const leagueSave = structuredClone(save);
+    Object.assign(leagueSave.adv, { chapter: 9, unlocked: 9, nodes: [], node: 0, battle: null, pending: null, paused: true });
+    await page.goto(new URL('/seed.html', process.env.GAME_URL || 'http://127.0.0.1:8080/').href);
+    await page.evaluate(state => {
+      state.lastTick = Date.now();
+      localStorage.setItem('gachamon-save-v1', JSON.stringify(state));
+      const {id, name, code} = PokevinExampleScript;
+      localStorage.setItem('pokevin-scripts', JSON.stringify({scripts:[{id,name,code,autoStart:true}],selectedId:id,examplesVersion:4}));
+    }, wire.pack(leagueSave));
+    await page.goto(process.env.GAME_URL || 'http://127.0.0.1:8080/');
+    await page.locator('.title-fx .ti-go').click();
+    await page.locator('.title-fx').waitFor({state:'detached'});
+    await page.locator('#tabs [data-screen="map"]').click();
+    await page.locator('#map-root [data-ch="L"]').click();
+    await page.waitForFunction(() => document.querySelector('#pc-arena-chance')?.dataset.champion === 'Ligue entière');
+    assert.match(await page.locator('#pc-arena-chance').innerText(), /Victoire .*%/);
+    await page.locator('#pc-arena-chance').hover();
+    await page.locator('#pc-arena-chance').focus();
+    await page.getByRole('tooltip').filter({hasText:'Ligue entière'}).waitFor();
+    await page.screenshot({path:path.join(ROOT, 'artifacts/league-victory-chrome.png')});
+    const leaguePNG = fs.readFileSync(path.join(ROOT, 'artifacts/league-victory-chrome.png'));
+    assert.equal(leaguePNG.readUInt32BE(16),1920); assert.equal(leaguePNG.readUInt32BE(20),1080);
+    await page.locator('#pc-arena-chance').press('Escape');
+    await page.locator('#pokevin-scripts').click();
+    await frame.getByRole('button', {name:'Arrêter',exact:true}).click();
+    await page.locator('#tabs [data-screen="map"]').click();
+    await page.locator('#map-root [data-ch="L"]').click();
+    await page.waitForTimeout(2200);
+    assert.equal(await page.locator('#pc-arena-chance').count(),0);
+    console.log('League badge: full Kanto circuit calculated by the listed script, tooltip and stop passed.');
+    console.log('SDK chapter badges: custom text/color, tooltip, update/remove, read-only bundled source, protected messages and stop/reload passed.');
     console.log('Current frontend: synchronized engine, compact save, XP/h, gym chance, optimization and native team application passed.');
     console.log('Screenshot:', screenshot);
   } finally {

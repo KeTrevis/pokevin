@@ -38,7 +38,7 @@ function background() {
     start: () => message({ type: 'encounter-optimize', requestId: 1, encounterId: 'league:kanto', save: {} }),
     cancel: () => message({ type: 'cancel' }),
     disconnect: () => disconnect(),
-    batch: () => { const [id, callback] = timers.entries().next().value; timers.delete(id); callback(); },
+    batch: () => { const [id, callback] = timers.entries().next().value; timers.delete(id); return callback(); },
     timers, replies, keepAlives, closed: () => closed,
   };
 }
@@ -46,7 +46,7 @@ function background() {
 test('active calculations keep the background alive beyond Firefox’s idle timeout, then stop', async () => {
   const bg = background();
   await bg.start();
-  while (bg.timers.size) bg.batch();
+  while (bg.timers.size) await bg.batch();
   assert.deepEqual(bg.keepAlives, [0, 20000, 40000, 60000, 80000]);
   assert.equal(bg.replies.at(-1).type, 'optimization-result');
   assert.equal(bg.closed(), true);

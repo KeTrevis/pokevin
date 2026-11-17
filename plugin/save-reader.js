@@ -1,5 +1,5 @@
 // @ts-check
-/* Read-only adapter for SaveWire FMT 2 from the official game (app.c0081498f2.js).
+/* Read-only adapter for SaveWire FMT 2 from the official game (app.9637252c96.js).
  * Keep storage decoding separate from simulation validation; old saves still work. */
 (() => {
   /** @param {unknown} value @returns {value is Record<string, any>} */

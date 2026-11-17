@@ -51,6 +51,7 @@ async function main() {
     const extension = path.join(ROOT, 'dist/extension');
     context = await chromium.launchPersistentContext(profile, {
       executablePath: process.env.BROWSER_EXECUTABLE || undefined,
+      channel: process.env.BROWSER_EXECUTABLE ? undefined : 'chromium',
       headless: true, viewport: { width: 1920, height: 1080 },
       ignoreDefaultArgs: ['--disable-extensions', '--disable-back-forward-cache'],
       args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`,
@@ -207,7 +208,7 @@ async function main() {
     await game.waitForFunction(() => window.restoredFromCache === true);
     await game.waitForFunction(before => window.calculationCompleted > before, completedBeforeNavigation, { timeout: 20000 });
     await ready();
-    assert.equal(await badge.locator('b').innerText(), '100 %');
+    assert.match(await badge.locator('b').innerText(), /100 %$/);
     assert.equal(await game.locator('#pc-arena-chance').count(), 1);
     await game.evaluate(() => renderChapter(5));
     await game.waitForFunction(() => document.querySelector('#pc-arena-chance')?.dataset.champion === 'Morgane');
@@ -220,6 +221,7 @@ async function main() {
       state.mons.forEach(mon => { mon.level = mon.uid === 'pc-strong' ? 100 : 30; });
       localStorage.setItem('gachamon-save-v1', JSON.stringify(state));
     });
+    await game.evaluate(() => localStorage.setItem('pokecatch-guide-seen', JSON.stringify(['adv', 'catch', 'team', 'league'])));
     await game.goto(origin + '/');
     await game.locator('#app').waitFor();
     await game.locator('.title-fx .ti-go').click();
@@ -240,7 +242,13 @@ async function main() {
     assert.equal(await badge.locator('small').count(), 0, 'Badge should stay on one line');
     const tooltip = game.locator(`[id="${await badge.getAttribute('aria-describedby')}"]`);
     await badge.hover();
-    await tooltip.waitFor({ state: 'visible' });
+    await tooltip.waitFor({ state: 'visible' }).catch(async error => {
+      console.log('Tooltip diagnostic', await game.evaluate(() => {
+        const badge=document.querySelector('#pc-arena-chance');
+        return {id:badge?.getAttribute('aria-describedby'), hovered:badge?.matches(':hover'), active:document.activeElement?.id,
+          tooltips:[...document.querySelectorAll('[role=tooltip]')].map(el=>({id:el.id,text:el.textContent,style:getComputedStyle(el).visibility,display:getComputedStyle(el).display}))};
+      })); throw error;
+    });
     assert.equal(await tooltip.innerText(), 'Contre Morgane. Chance de victoire avec l’équipe en route à 100 % de PV.');
     assert.equal(await badge.getAttribute('aria-describedby'), await tooltip.getAttribute('id'));
     const tooltipStyle = await game.evaluate(() => {
@@ -255,7 +263,13 @@ async function main() {
     await game.mouse.move(0, 0);
     await tooltip.waitFor({ state: 'hidden' });
     await badge.focus();
-    await tooltip.waitFor({ state: 'visible' });
+    await tooltip.waitFor({ state: 'visible' }).catch(async error => {
+      console.log('Tooltip diagnostic', await game.evaluate(() => {
+        const badge=document.querySelector('#pc-arena-chance');
+        return {id:badge?.getAttribute('aria-describedby'), hovered:badge?.matches(':hover'), active:document.activeElement?.id,
+          tooltips:[...document.querySelectorAll('[role=tooltip]')].map(el=>({id:el.id,text:el.textContent,style:getComputedStyle(el).visibility,display:getComputedStyle(el).display}))};
+      })); throw error;
+    });
     await badge.press('Escape');
     await tooltip.waitFor({ state: 'hidden' });
     await badge.evaluate(element => element.blur());

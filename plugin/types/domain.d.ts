@@ -130,8 +130,8 @@ export interface Advice {
 }
 export type EstimateResult<T> = T | { error: string };
 export interface ChapterVisit {
-  chapter: XPTarget; save?: Save; xpStarted: boolean; gymStarted: boolean;
-  xp?: EstimateResult<XPResult>; gym?: EstimateResult<GymResult>;
+  chapter: XPTarget; save?: Save; xpStarted: boolean;
+  xp?: EstimateResult<XPResult>;
 }
 
 // Public surface used from the generated game engine; its implementation stays untouched.
