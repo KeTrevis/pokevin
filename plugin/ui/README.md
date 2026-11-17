@@ -103,10 +103,20 @@ l’ancienne racine lors d’un changement d’écran, même si le jeu conserve 
 écran masqué dans le DOM.
 
 
-Les deux calculateurs fournis (victoire et XP/h) sont des scripts built-in dans
+Les deux calculateurs fournis (victoire et XP/h) sont des scripts fournis dans
 `plugin/scripts/`. Ils rendent leurs badges via `ui.chapterBadge` et s’abonnent à
 `chapters.onViewed`. Le scope de visite fournit `battles` et `simulate` ; les
 sessions sont fermées à la sortie de la fiche. `pokevin.simulate` renvoie les
 événements natifs et le temps nominal d’un parcours. Le SDK ne calcule ni taux
 horaire, ni nombre d’essais, ni texte de badge. Les contrats sont dans
 `plugin/types/adventures.d.ts` ; ils sont aussi chargés dans Monaco.
+
+Les scripts fournis de l’errant dans la timeline et du compte à rebours des œufs
+utilisent `ui.observe(selector, callback, cleanup?)`. Cette primitive fournit les
+éléments du DOM immédiatement, après leurs mutations et chaque seconde ; le script
+garde la logique de décoration et son nettoyage. L’arrêt déconnecte l’observateur,
+annule ses timers et retire l’affichage grâce au callback de nettoyage.
+
+Le script de timeline utilise `pokevin.catalog()` pour les noms des espèces, sans
+charger les rencontres. `ui.versionWarning(bundle)` partage la vérification du jeu
+chargé avec les badges et les autres affichages personnalisés.

@@ -61,7 +61,7 @@ test('XP policy belongs to the script and includes partial XP and defeat duratio
 });
 test('the exact installed XP source renders through the generic badge API',async()=>{
  const fs=require('node:fs'),vm=require('node:vm');
- const context={source:fs.readFileSync(require.resolve('../plugin/scripts/chapter-xp.js'),'utf8'),badgeSource:fs.readFileSync(require.resolve('../plugin/scripts/xp-badge.js'),'utf8'),PokevinExampleScript:{}};
+ const context={source:fs.readFileSync(require.resolve('../plugin/scripts/chapter-xp.js'),'utf8'),badgeSource:fs.readFileSync(require.resolve('../plugin/scripts/xp-badge.js'),'utf8'),roamingSource:fs.readFileSync(require.resolve('../plugin/scripts/roaming-timeline.js'),'utf8'),pensionSource:fs.readFileSync(require.resolve('../plugin/scripts/pension-countdown.js'),'utf8'),PokevinExampleScript:{}};
  vm.runInNewContext(fs.readFileSync(require.resolve('../plugin/scripts/xp-example.js'),'utf8').replace(/^import .*;$/gm,''),context);
  let completion,calls=0,props;
  const scope={battles:{catalog:async()=>({bundle:'test.js'})},simulate:async()=>{calls++;return {events:[{type:'xp',uid:'team',amount:1}],teamIds:['team'],elapsedMs:1000,outcome:'defeat',speed:1,league:false};},ui:{chapterBadge:(id,initial)=>{

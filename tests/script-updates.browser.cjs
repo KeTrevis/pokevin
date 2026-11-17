@@ -60,38 +60,43 @@ async function main() {
       localStorage.setItem('pokecatch-guide-seen',JSON.stringify(['adv','catch','team','league']));
     },wire.pack(save));
     await page.goto(gameUrl);
-    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('pokevin-scripts'))?.exampleCode);
-    const initial = await page.evaluate(()=>JSON.parse(localStorage.getItem('pokevin-scripts')));
+    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('pokevin-scripts'))?.scripts.length === 4);
     await page.evaluate(() => {
       const library=JSON.parse(localStorage.getItem('pokevin-scripts'));
-      library.scripts.find(script=>script.id==='example-victory-chance').code+='\n// Personal edit before source update\n';
+      const script=library.scripts.find(script=>script.id==='example-victory-chance');
+      script.name='Mon indicateur';
+      script.code=script.code.replace('⚔️ Victoire','Mon indicateur')+'\n// Personal edit before source update\n';
       localStorage.setItem('pokevin-scripts',JSON.stringify(library));
     });
+    const personal = await page.evaluate(()=>JSON.parse(localStorage.getItem('pokevin-scripts')).scripts[0]);
+    const before = await page.evaluate(()=>performance.timeOrigin);
     const badgeFile = path.join(plugin,'scripts/victory-badge.js');
     const changed = fs.readFileSync(badgeFile,'utf8').replace('text: `⚔️ Victoire ${percent} %`','text: `Dev actualisé ${percent} %`');
     fs.writeFileSync(badgeFile,changed);
-    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('pokevin-scripts'))?.scripts.find(script=>script.id==='example-victory-chance')?.code.includes('Dev actualisé'),null,{timeout:60000});
+    await page.waitForFunction(before=>performance.timeOrigin!==before,before,{timeout:60000});
+    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('pokevin-scripts'))?.scripts.length === 4);
+    assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('pokevin-scripts')).scripts[0]),personal);
     await page.locator('.title-fx .ti-go').click();
     await page.locator('.title-fx').waitFor({state:'detached'});
     await page.locator('#tabs [data-screen="map"]').click();
     await page.locator('#map-root [data-ch="0"]').click();
-    await page.waitForFunction(()=>document.querySelector('#pc-arena-chance')?.textContent.startsWith('Dev actualisé'));
-    assert.equal(await page.locator('#pc-arena-chance').count(),1);
-    const backup=await page.evaluate(()=>JSON.parse(localStorage.getItem('pokevin-scripts')).scripts.find(script=>script.id!=='example-victory-chance'));
-    assert.ok(backup.code.includes('Personal edit before source update'));
-    assert.equal(backup.autoStart,false);
-
-    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('pokevin-scripts')).examplesVersion),initial.examplesVersion);
-    await page.screenshot({path:path.join(ROOT,'artifacts/dev-script-auto-update.png')});
-    const png=fs.readFileSync(path.join(ROOT,'artifacts/dev-script-auto-update.png'));
-    assert.equal(png.readUInt32BE(16),1920);assert.equal(png.readUInt32BE(20),1080);
-    await page.evaluate(()=>pokevin.stop());
-    fs.writeFileSync(badgeFile,changed.replace('Dev actualisé', 'Dev deuxième version'));
-    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('pokevin-scripts'))?.exampleCode.includes('Dev deuxième version'),null,{timeout:60000});
-    const stopped=await page.evaluate(()=>JSON.parse(localStorage.getItem('pokevin-scripts')).scripts.find(script=>script.id==='example-victory-chance'));
-    assert.equal(stopped.autoStart,false);
-    assert.ok(stopped.code.includes('Dev deuxième version'));
-    console.log('WXT dev: source edit reloads the real game, updates and runs the bundled script without a migration; stopped state is preserved.');
+    await page.waitForFunction(()=>document.querySelector('#pc-arena-chance')?.textContent.startsWith('Mon indicateur'));
+    await page.evaluate(()=>{
+      pokevin.stop();
+      const library=JSON.parse(localStorage.getItem('pokevin-scripts'));
+      library.scripts=library.scripts.filter(script=>script.id!=='example-victory-chance');
+      library.selectedId=library.scripts[0].id;
+      localStorage.setItem('pokevin-scripts',JSON.stringify(library));
+    });
+    const nextReload=await page.evaluate(()=>performance.timeOrigin);
+    fs.writeFileSync(badgeFile,changed.replace('Dev actualisé','Dev deuxième version'));
+    await page.waitForFunction(before=>performance.timeOrigin!==before,nextReload,{timeout:60000});
+    await page.waitForFunction(()=>!!window.pokevin);
+    const remaining=await page.evaluate(()=>JSON.parse(localStorage.getItem('pokevin-scripts')));
+    assert.equal(remaining.scripts.length,3);
+    assert.ok(remaining.scripts.every(script=>script.autoStart===false));
+    assert.ok(!remaining.scripts.some(script=>script.id==='example-victory-chance'));
+    console.log('WXT dev: source reload preserves edited names/code, stopped scripts and deletion; no automatic source replacement.');
   } catch(error) { console.error(logs.slice(-7000)); throw error; }
   finally {
     await context?.close();

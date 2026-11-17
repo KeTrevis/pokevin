@@ -175,27 +175,33 @@ async function main() {
     assert.match(original,/async function updateVictoryBadge/);
     assert.ok((await frame.locator('.view-lines').innerText()).length > 100, 'The bundled source remains readable');
     assert.equal(await frame.locator('.squiggly-error').count(), 0, 'The bundled script has no editor type errors');
-    assert.equal(await frame.getByRole('textbox', {name:'Nom du script'}).getAttribute('readonly'),'');
-    assert.equal(await frame.locator('.delete-script').count(),0);
+    assert.equal(await frame.getByRole('textbox', {name:'Nom du script'}).getAttribute('readonly'),null);
+    assert.equal(await frame.locator('.delete-script').count(),4);
+    assert.equal(await frame.locator('.script-group').count(),0);
+    const edited = original + '// My editable indicator';
     await frame.locator('.monaco-editor textarea').focus();
-    await page.keyboard.press('Meta+a');
-    await page.keyboard.insertText('throw new Error("must stay read-only")');
-    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pokevin-scripts')).scripts[0].code),original);
-    // Parent-side enforcement also rejects forged editor messages.
-    await frame.locator('body').evaluate((_, code) => {
-      parent.postMessage({type:'pokevin-editor',action:'save',id:'example-victory-chance',name:'Changed',code},location.href.includes('?')?new URL(location.href).searchParams.get('origin'):'');
-      parent.postMessage({type:'pokevin-editor',action:'delete',id:'example-victory-chance'},new URL(location.href).searchParams.get('origin'));
-    }, 'throw new Error("must be ignored")');
+    await page.keyboard.press('Meta+ArrowDown');
+    await page.keyboard.insertText('// My editable indicator');
+    await frame.getByRole('textbox', {name:'Nom du script'}).fill('Mon indicateur');
+    await page.waitForFunction(code => JSON.parse(localStorage.getItem('pokevin-scripts')).scripts[0].code.replace(/\s+/g,'') === code.replace(/\s+/g,''), edited);
     await frame.getByRole('button', {name:'Exécuter', exact:true}).click();
     await page.locator('#tabs [data-screen="map"]').click();
     await page.locator('#map-root [data-ch="0"]').click();
     await page.waitForFunction(() => /Victoire .*%/.test(document.querySelector('#pc-arena-chance')?.textContent));
-    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pokevin-scripts')).scripts[0].code),original);
     await page.locator('#pokevin-scripts').click();
     await page.waitForFunction(() => getComputedStyle(document.querySelector('#screen-pokevin-scripts')).opacity === '1');
-    await page.screenshot({path:path.join(ROOT, 'artifacts/bundled-script-readonly.png')});
-    const readonlyPNG = fs.readFileSync(path.join(ROOT, 'artifacts/bundled-script-readonly.png'));
-    assert.equal(readonlyPNG.readUInt32BE(16),1920); assert.equal(readonlyPNG.readUInt32BE(20),1080);
+    const editorScreenshot = path.join(ROOT, 'artifacts/scripts-editable.png');
+    await page.screenshot({path:editorScreenshot});
+    const editorPNG = fs.readFileSync(editorScreenshot);
+    assert.equal(editorPNG.readUInt32BE(16),1920); assert.equal(editorPNG.readUInt32BE(20),1080);
+    await page.setViewportSize({width:390,height:844});
+    await page.waitForTimeout(300);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+    await page.setViewportSize({width:1920,height:1080});
+    await frame.locator('.script-row').first().hover();
+    await frame.getByRole('button', {name:'Supprimer Mon indicateur',exact:true}).click();
+    await frame.getByRole('button', {name:'Supprimer',exact:true}).click();
+    await page.waitForFunction(()=>!JSON.parse(localStorage.getItem('pokevin-scripts')).scripts.some(script=>script.id==='example-victory-chance'));
     await page.evaluate(() => pokevin.stop());
     await page.waitForTimeout(2200);
     assert.equal(await page.locator('#pc-arena-chance').count(), 0);
@@ -207,14 +213,14 @@ async function main() {
     await page.locator('#map-root [data-ch="0"]').click();
     await page.waitForTimeout(2200);
     assert.equal(await page.locator('#pc-arena-chance').count(), 0, 'Stopped state survives reload');
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('pokevin-scripts')).scripts.some(script=>script.id==='example-victory-chance')),false,'Deleted default stays deleted after reload');
     const leagueSave = structuredClone(save);
     Object.assign(leagueSave.adv, { chapter: 9, unlocked: 9, nodes: [], node: 0, battle: null, pending: null, paused: true });
     await page.goto(new URL('/seed.html', process.env.GAME_URL || 'http://127.0.0.1:8080/').href);
     await page.evaluate(state => {
       state.lastTick = Date.now();
       localStorage.setItem('gachamon-save-v1', JSON.stringify(state));
-      const {id, name, code} = PokevinExampleScript;
-      localStorage.setItem('pokevin-scripts', JSON.stringify({scripts:[{id,name,code,autoStart:true}],selectedId:id,examplesVersion:4}));
+      localStorage.removeItem('pokevin-scripts');
     }, wire.pack(leagueSave));
     await page.goto(process.env.GAME_URL || 'http://127.0.0.1:8080/');
     await page.locator('#tabs [data-screen=map]').waitFor();
@@ -263,9 +269,16 @@ async function main() {
     await xp.focus();
     await page.screenshot({path:path.join(ROOT,'artifacts/xp-builtin-league-chrome.png')});
     console.log('League badge: full Kanto circuit calculated by the listed script, tooltip and stop passed.');
-    console.log('SDK chapter badges: custom text/color, tooltip, update/remove, read-only bundled source, protected messages and stop/reload passed.');
+    console.log('SDK chapter badges: custom text/color, tooltip, update/remove, editable defaults, rename/delete persistence and stop/reload passed.');
     console.log('Current frontend: synchronized engine, compact save, XP/h, gym chance, optimization and native team application passed.');
     console.log('Screenshot:', screenshot);
+  } catch (error) {
+    const page = context?.pages().at(-1);
+    if (page) {
+      console.error('Modal at failure:', await page.locator('#modal-root').innerText().catch(() => 'Unavailable'));
+      await page.screenshot({path: path.join(ROOT, 'artifacts/current-game-failure.png')}).catch(() => {});
+    }
+    throw error;
   } finally {
     await context?.close();
     fs.rmSync(profile, { recursive: true, force: true });

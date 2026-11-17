@@ -23,13 +23,24 @@ export interface ChapterViewScope {
   simulate: import('./adventures').Simulate;
 }
 export interface ScriptUI {
-  ui: { chapterBadge(chapterId: AdventureTarget, props: ChapterBadgeProps): ChapterBadge };
+  ui: {
+    /** Empty when the loaded game matches this bundle; otherwise the shared warning. */
+    versionWarning(bundle: string): string;
+    chapterBadge(chapterId: AdventureTarget, props: ChapterBadgeProps): ChapterBadge;
+    /**
+     * Receives matching DOM elements immediately, on changes and once per second.
+     * Unsubscribing or stopping disconnects the observer/timers, then calls cleanup once.
+     */
+    observe(selector: string, callback: (elements: Element[]) => void, cleanup?: () => void): () => void;
+  };
   chapters: {
     /** Immediately receives the current view, then changes; null when the chapter closes. */
     onViewed(callback: (view: ChapterView | null, scope: ChapterViewScope) => unknown): () => void;
   };
 }
 export interface ScriptAPI extends ScriptUI {
+  /** Raw species data and engine bundle, independent of the current save or battles. */
+  catalog(): Promise<import('./battles').GameCatalog>;
   battles: import('./battles').Battles;
   simulate: import('./adventures').Simulate;
   saves: { read(): import('./domain').Save };

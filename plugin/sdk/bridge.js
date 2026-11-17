@@ -1,5 +1,5 @@
 // @ts-check
-// Only battle primitives cross from page scripts to the isolated extension worker.
+// Only explicit data and simulation operations cross to the isolated worker.
 (() => {
   /** @type {Map<string, chrome.runtime.Port>} */
   const sessions = new Map();
@@ -11,7 +11,7 @@
     if (typeof sessionId !== 'string' || sessionId.length > 100) return;
     let port = sessions.get(sessionId);
     if (method === 'close') { sessions.delete(sessionId); port?.disconnect(); return; }
-    if (!Number.isSafeInteger(requestId) || !['catalog', 'roaming', 'interval', 'prepare', 'fight', 'simulateAdventure'].includes(method)) return;
+    if (!Number.isSafeInteger(requestId) || !['speciesCatalog', 'catalog', 'roaming', 'interval', 'prepare', 'fight', 'simulateAdventure'].includes(method)) return;
     try {
       if (!port) {
         if (sessions.size >= 64) throw new Error('Trop de simulations ouvertes. Ferme les combats inutilisés.');

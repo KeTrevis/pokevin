@@ -32,9 +32,6 @@
   /** @type {import("./types/domain").ChapterVisit | undefined} */
   let visit;
   let visitRoamer = '';
-  /** @type {Map<number, string> | undefined} */
-  let roamingNames;
-  let roamingNamesLoading = false;
   const engineBundle = PokeCatchChapterData.bundle;
   /** @param {string | undefined} expected */
   const matchesBundle = (expected) =>
@@ -277,51 +274,8 @@
     advice = { status: "idle", chapter: typeof chapter === 'number' ? chapter : undefined };
   }
 
-  function renderRoamingTimeline() {
-    const timeline = document.querySelector('#timeline');
-    if (!timeline) return;
-    const steps = [...timeline.querySelectorAll('.tl-node')];
-    try { readSave(); } catch { return; }
-    const adv = save.adv;
-    const ordinary = adv && !adv.event && !adv.zone && !adv.tower && !adv.league &&
-      adv.nodes?.length === steps.length;
-    steps.forEach((step, index) => {
-      const node = ordinary ? adv.nodes[index] : undefined;
-      // The run keeps its assigned encounter even if the map's roaming timer expires.
-      const id = node?.type === 'wild' && !save.roam?.caught?.includes(node.roamer || 0)
-        ? node.roamer : undefined;
-      const existing = step.querySelector('.pc-timeline-roamer');
-      if (!id || !Number.isSafeInteger(id) || id < 1 || !step.classList.contains('wild')) {
-        existing?.remove();
-        return;
-      }
-      if (!roamingNames && !roamingNamesLoading) {
-        roamingNamesLoading = true;
-        chrome.runtime.sendMessage({ type: 'friend-pokedex-species' }).then(
-          /** @param {import('./types/domain').DexCatalog} catalog */ catalog => {
-            roamingNames = new Map(catalog.species.map(mon => [mon.id, mon.name]));
-            schedule();
-          },
-        ).catch(() => { roamingNamesLoading = false; });
-      }
-      const name = roamingNames?.get(id) || 'Pokémon errant';
-      const title = matchesBundle(PokeCatchChapterData.bundle) ? '' : versionWarning;
-      const image = existing || document.createElement('img');
-      if (image.getAttribute('data-id') !== String(id)) {
-        image.setAttribute('data-id', String(id));
-        image.setAttribute('src', `assets/pokemon/${id}.png`);
-        image.className = 'pc-timeline-roamer';
-      }
-      if (image.getAttribute('alt') !== name) image.setAttribute('alt', name);
-      // An empty title also suppresses the native step's inherited tooltip.
-      if (image.getAttribute('title') !== title) image.setAttribute('title', title);
-      if (!existing) step.append(image);
-    });
-  }
-
   function update() {
     if (applying || document.hidden) return;
-    renderRoamingTimeline();
     syncVisit();
     refreshVersionWarning();
     renderChapterPreview();
@@ -356,10 +310,6 @@
   }
   const observer = new MutationObserver((records) => {
     for (const record of records) disposeDetached(record.removedNodes);
-    if (!document.hidden && !applying && records.some(record =>
-      record.target instanceof Element && record.target.closest('#timeline'))) {
-      renderRoamingTimeline();
-    }
     if (
       records.some(
         (record) =>

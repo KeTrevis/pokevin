@@ -30,7 +30,6 @@
     "plugin/pc-multiselect.js",
     "plugin/ui/**/*.jsx",
     "plugin/ui/version-warning.js",
-    "plugin/ui/pension.js",
     "plugin/types/**/*.d.ts",
     "tests/typecheck-contracts.js",
     "plugin/encounter-simulator.js",

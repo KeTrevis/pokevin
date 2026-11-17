@@ -2,15 +2,16 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const vm=require('node:vm');
 const fs=require('node:fs');
-function setup(saved, example, builtins){
+function setup(saved, example, defaults, realUI=false){
  class Storage {constructor(){this.values=new Map()}setItem(k,v){this.values.set(k,String(v))}getItem(k){return this.values.get(k)??null}}
  const pending=[], errors=[]; let subscriptions=0;
- const context={crypto:{randomUUID:require('node:crypto').randomUUID},PokevinExampleScript:{id:'example-victory-chance',name:'Calculateur',code:'pokevin.chapters.onViewed(() => {});',previousCodes:['old badge example','old scoped example'],legacyCode:'old console example'}, PokevinCreateUI:cleanups=>({ui:{},chapters:{onViewed:()=>{subscriptions++;const off=()=>{subscriptions--;cleanups.delete(off)};cleanups.add(off);return off}}}),addEventListener(){},Storage, localStorage:new Storage(), queueMicrotask:fn=>pending.push(fn), console:{error:(...args)=>errors.push(args)},
- document:{documentElement:{},addEventListener(){},querySelector:()=>null},MutationObserver:class{observe(){}}};
+ const context={crypto:{randomUUID:require('node:crypto').randomUUID},PokevinExampleScript:{id:'example-victory-chance',name:'Calculateur',code:'pokevin.chapters.onViewed(() => {});'}, PokevinCreateUI:cleanups=>({ui:{},chapters:{onViewed:()=>{subscriptions++;const off=()=>{subscriptions--;cleanups.delete(off)};cleanups.add(off);return off}}}),addEventListener(){},Storage, localStorage:new Storage(), queueMicrotask:fn=>pending.push(fn), console:{error:(...args)=>errors.push(args)},
+ document:{documentElement:{},scripts:[],addEventListener(){},querySelector:()=>null,querySelectorAll:()=>[]},MutationObserver:class{observe(){}disconnect(){}},VERSION_WARNING:"warning",setInterval:()=>0,clearInterval(){},setTimeout,clearTimeout};
  if(example)context.PokevinExampleScript=example;
  if(saved)context.localStorage.setItem('pokevin-scripts',JSON.stringify(saved));
- context.PokevinBuiltinScripts=builtins??[context.PokevinExampleScript];
+ context.PokevinDefaultScripts=defaults??[{...context.PokevinExampleScript,autoStart:true}];
  context.window=context;
+ if(realUI)vm.runInNewContext(fs.readFileSync(require.resolve('../plugin/sdk/ui.js'),'utf8').replace(/^import .*;$/m,''),context);
  vm.runInNewContext(fs.readFileSync(require.resolve('../plugin/sdk/client.js'),'utf8'),context);
  vm.runInNewContext(fs.readFileSync(require.resolve('../plugin/automation.js'),'utf8'),context);
  const write=adv=>{context.localStorage.setItem('gachamon-save-v1',JSON.stringify({fmt:2,adv}));while(pending.length)pending.shift()()};
@@ -54,48 +55,37 @@ test('callbacks receive one independent event object containing chapterId',()=>{
  assert.deepEqual(JSON.parse(JSON.stringify(seen)),[{chapterId:14,node:0,roamer:243},{chapterId:14},{chapterId:14}]);
 });
 
-test('the visible built-in is the automatically running script and stopping persists across reloads',()=>{
- const ctx=setup({scripts:[{id:'mine',name:'Mine',code:'keep me'}],selectedId:'mine'});
- assert.equal(ctx.subscriptions(),1);
- assert.equal(ctx.library().scripts[0].code,'keep me');
- assert.equal(ctx.library().selectedId,'mine');
- assert.equal(ctx.library().scripts.find(s=>s.id==='example-victory-chance').autoStart,true);
- ctx.api.stop();
- assert.equal(ctx.subscriptions(),0);
- const reloaded=setup(ctx.library());
- assert.equal(reloaded.subscriptions(),0);
- assert.equal(reloaded.library().scripts.length,2);
-});
-test('migration upgrades the old console example, preserves edits, and respects deletion',()=>{
- const old={scripts:[{id:'example-victory-chance',name:'Example',code:'old console example'}],selectedId:'example-victory-chance',examplesVersion:1};
- const migrated=setup(old);
- assert.equal(migrated.subscriptions(),1);
- assert.match(migrated.library().scripts[0].code,/onViewed/);
- const edited=setup({...old,scripts:[{...old.scripts[0],code:'my custom code'}]});
- assert.equal(edited.subscriptions(),0);
- assert.equal(edited.library().scripts[1].code,'my custom code');
- const deleted=setup({scripts:[],selectedId:'',examplesVersion:2});
- assert.equal(deleted.subscriptions(),0);
- assert.equal(deleted.library().scripts.length,1);
+test('default scripts are installed once and stopping persists for every script',()=>{
+ const env=setup();assert.equal(env.subscriptions(),1);
+ assert.equal(env.library().scripts.length,1);
+ env.api.stop();assert.equal(env.subscriptions(),0);
+ assert.equal(setup(env.library()).subscriptions(),0);
+ assert.equal(setup({scripts:[],selectedId:''}).library().scripts.length,0);
 });
 
-test('migration updates the untouched badge example, preserving edits, stopped state and deletion',()=>{
- const old={scripts:[{id:'example-victory-chance',name:'Calculateur',code:'old badge example',autoStart:false}],selectedId:'example-victory-chance',examplesVersion:2};
- const migrated=setup(old);
- assert.match(migrated.library().scripts[0].code,/onViewed/);
- assert.equal(migrated.library().scripts[0].autoStart,false);
- assert.equal(migrated.library().examplesVersion,4);
- const edited=setup({...old,scripts:[{...old.scripts[0],code:'my custom code'}]});
- assert.equal(edited.library().scripts[1].code,'my custom code');
- assert.equal(setup({...old,scripts:[],selectedId:''}).library().scripts.length,1);
+test('migration preserves names, code, selection and execution preferences without making copies',()=>{
+ const saved={scripts:[{id:'example-victory-chance',name:'Mon indicateur',code:'pokevin.chapters.onViewed(() => {}); // personal',autoStart:true,bundled:true},
+  {id:'mine',name:'Perso',code:'// saved',autoStart:false}],selectedId:'mine',examplesVersion:4,exampleCode:'old source',bundledCodes:{'example-victory-chance':'old source'}};
+ const env=setup(saved);
+ assert.equal(env.subscriptions(),1);
+ assert.deepEqual(env.library(),{scripts:saved.scripts.map(({bundled,...script})=>script),selectedId:'mine'});
+ const changed={...env.context.PokevinExampleScript,code:'throw new Error("new default")'};
+ assert.deepEqual(setup(env.library(),changed).library(),env.library());
 });
 
-test('the real previous bundled script migrates to the simplified visit-scoped script',()=>{
+test('running personal scripts restart too, and an empty library remains empty after updates',()=>{
+ const env=setup({scripts:[{id:'mine',name:'Mine',code:'pokevin.chapters.onViewed(() => {});',autoStart:true}],selectedId:'mine'});
+ assert.equal(env.subscriptions(),1);env.api.stop();
+ assert.equal(env.library().scripts[0].autoStart,false);
+ assert.equal(setup(env.library()).subscriptions(),0);
+ assert.deepEqual(setup({scripts:[],selectedId:''}).library(),{scripts:[],selectedId:''});
+});
+
+test('default victory source remains readable and typed',()=>{
  const context={source:fs.readFileSync(require.resolve('../plugin/scripts/victory-chance.js'),'utf8'),badgeSource:fs.readFileSync(require.resolve('../plugin/scripts/victory-badge.js'),'utf8')};
  const builder=fs.readFileSync(require.resolve('../plugin/scripts/victory-chance-example.js'),'utf8').replace(/^import .*;$/gm,'');
  vm.runInNewContext(builder,context);
  const example=context.PokevinExampleScript;
- assert.match(example.previousCodes[0],/const previous = current/);
  assert.doesNotMatch(example.code,/const previous = current|current !== job/);
  assert.match(example.code,/async function\* calculateVictoryChance\(battles, save, target\)/);
  assert.match(example.code,/const calculation = calculateVictoryChance\(battles, save, view.chapterId\)/);
@@ -117,80 +107,18 @@ test('the real previous bundled script migrates to the simplified visit-scoped s
   ],{encoding:'utf8'});
   assert.equal(check.status,0,check.stdout+check.stderr);
  } finally {fs.rmSync(directory,{recursive:true,force:true});}
- for(const [index,code] of example.previousCodes.entries()){
-  const migrated=setup({scripts:[{id:example.id,name:example.name,code,autoStart:true}],selectedId:example.id,examplesVersion:index+2},example);
-  assert.equal(migrated.library().scripts[0].code,example.code);
-  assert.match(migrated.library().scripts[0].code,/startsWith\('league:'/);
- }
 });
 
-test('the previous scoped default gains League support without reactivating stopped scripts',()=>{
- const saved={scripts:[{id:'example-victory-chance',name:'Calculateur',code:'old scoped example',autoStart:false}],selectedId:'example-victory-chance',examplesVersion:3};
- const migrated=setup(saved);
- assert.match(migrated.library().scripts[0].code,/onViewed/);
- assert.equal(migrated.library().scripts[0].autoStart,false);
- assert.equal(setup({...saved,scripts:[]}).library().scripts.length,1);
-});
-
-test('bundled source changes update untouched copies without version bumps or historical code lists',()=>{
- const first=setup();
- const example={...first.context.PokevinExampleScript,code:'// v2\npokevin.chapters.onViewed(() => {});',previousCodes:[]};
- const second=setup(first.library(),example);
- assert.equal(second.library().scripts[0].code,example.code);
- assert.equal(second.library().exampleCode,example.code);
- assert.equal(second.subscriptions(),1);
- const third=setup(second.library(),{...example,code:'// v3\npokevin.chapters.onViewed(() => {});'});
- assert.match(third.library().scripts[0].code,/v3/);
- assert.equal(third.library().examplesVersion,first.library().examplesVersion);
-});
-
-test('automatic source updates back up edits and restore deleted built-ins in the stopped state',()=>{
- const initial=setup();
- initial.api.stop();
- const saved=initial.library();
- const example={...initial.context.PokevinExampleScript,code:'// next\npokevin.chapters.onViewed(() => {});',previousCodes:[]};
- const stopped=setup(saved,example);
- assert.equal(stopped.library().scripts[0].code,example.code);
- assert.equal(stopped.subscriptions(),0);
- const edited=setup({...saved,scripts:[{...saved.scripts[0],code:'my custom code'}]},example);
- assert.equal(edited.library().scripts[1].code,'my custom code');
- const deleted=setup({...saved,scripts:[],selectedId:''},example);
- assert.equal(deleted.library().scripts.length,1);
- assert.equal(deleted.library().exampleCode,example.code);
-});
-
-test('an edited bundled script is restored with exactly one personal backup',()=>{
- const initial=setup(); initial.api.stop();
- const saved=initial.library();
- saved.scripts[0].code='// custom changes';
- const example={...initial.context.PokevinExampleScript};
- const refreshed=setup(saved,example);
- assert.equal(refreshed.library().scripts[0].code,example.code);
- assert.equal(refreshed.library().scripts[0].autoStart,false);
- assert.equal(refreshed.library().scripts[1].code,'// custom changes');
- assert.equal(refreshed.library().scripts[1].autoStart,false);
- assert.match(refreshed.library().scripts[1].name,/copie personnelle/);
- assert.equal(refreshed.subscriptions(),0);
- const reloaded=setup(refreshed.library(),example);
- assert.equal(reloaded.library().scripts.length,2);
- assert.equal(setup({...saved,scripts:[]},example).library().scripts.length,1);
-});
-
-test('adding XP preserves victory preferences, starts XP once and keeps both stopped after reload',()=>{
- const victory={id:'example-victory-chance',name:'Victoire',code:'pokevin.chapters.onViewed(() => {});',previousCodes:[],legacyCode:''};
- const xp={id:'example-chapter-xp',name:'XP',code:'pokevin.chapters.onViewed(() => {});',previousCodes:[],legacyCode:'',autoStart:true};
- const saved={scripts:[{...victory,bundled:true,autoStart:false}],selectedId:victory.id,examplesVersion:4,exampleCode:victory.code};
- const env=setup(saved,victory,[victory,xp]);
- assert.equal(env.subscriptions(),1);
- assert.equal(env.library().scripts.length,2);
- assert.equal(env.library().selectedId,victory.id);
- assert.equal(env.library().scripts[0].autoStart,false);
- assert.equal(env.library().scripts[1].autoStart,true);
- env.api.stop();
- const reloaded=setup(env.library(),victory,[victory,xp]);
- assert.equal(reloaded.subscriptions(),0);
- assert.equal(reloaded.library().scripts.length,2);
- const updated=setup(reloaded.library(),victory,[victory,{...xp,code:xp.code+'\n// Updated'}]);
- assert.equal(updated.subscriptions(),0);
- assert.equal(updated.library().scripts.length,2);
+test('throwing cleanup cannot prevent other callbacks or scripts from stopping',()=>{
+ const defaults=[{id:'a',name:'A',autoStart:true,code:"pokevin.ui.observe('body',()=>{},()=>{throw new Error('cleanup failed')});pokevin.events.onChapterStarted(()=>{globalThis.aRan=true});"},
+ {id:'b',name:'B',autoStart:true,code:"pokevin.ui.observe('body',()=>{},()=>{globalThis.cleanedB=true});pokevin.events.onChapterStarted(()=>{globalThis.bRan=true});"}];
+ const env=setup(undefined,undefined,defaults,true);
+ assert.doesNotThrow(()=>env.api.stop());
+ assert.equal(env.errors.length,1);assert.equal(env.context.cleanedB,true);
+ assert.ok(env.library().scripts.every(script=>script.autoStart===false));
+ env.write(adv());env.write(adv({chapter:15}));
+ assert.equal(env.context.aRan,undefined);assert.equal(env.context.bRan,undefined);
+ assert.doesNotThrow(()=>env.api.stop());assert.equal(env.errors.length,1);
+ const reloaded=setup(env.library(),undefined,defaults,true);
+ assert.equal(reloaded.context.cleanedB,undefined);
 });

@@ -59,7 +59,7 @@ test('the bundled script owns sampling and releases its battle on result, cancel
 });
 
 test('worker RPC keeps prepared state private, isolates ports and validates methods', async () => {
-  global.chrome = { runtime: { getPlatformInfo: callback => callback({}) } };
+  global.chrome = { runtime: { getPlatformInfo: callback => callback({}), getURL: () => 'data:application/json,%7B%22bundle%22%3A%22test.js%22%7D' } };
   function port() {
     let receive, disconnect, sequence = 0;
     const pending = new Map();
@@ -74,6 +74,12 @@ test('worker RPC keeps prepared state private, isolates ports and validates meth
     } };
   }
   const a = port(), b = port();
+  const catalog = (await a.call('speciesCatalog')).value;
+  assert.equal(catalog.bundle, 'test.js');
+  assert.equal(catalog.species.find(mon => mon.id === 243).name, 'Raikou');
+  catalog.species[0].types.length = 0;
+  assert.ok((await a.call('speciesCatalog')).value.species[0].types.length);
+  assert.equal(catalog.champions, undefined, 'Species lookup does not prepare battles or require a save');
   const prepared = await a.call('prepare', { save: fixture(), target: 0 });
   assert.equal(prepared.value.state, undefined);
   assert.ok(prepared.value.champion.name);

@@ -1,11 +1,17 @@
 // @ts-check
 // Worker-side primitives. Prepared state stays private to its session.
 (() => {
+  /**
+   * @returns {Promise<import('../types/battles').GameCatalog>}
+   */
+  async function catalog() {
+    const version = await fetch(chrome.runtime.getURL('engine/version.json')).then(response => response.json());
+    return { species: PokeCatchEngine.POKEDEX.map(({id, name, num, types}) => ({id, name, num, types: [...types]})), bundle: version.bundle };
+  }
   /** @type {import('../types/battles').Battles} */
   const battles = {
     async catalog(save) {
-      const version = await fetch(chrome.runtime.getURL('engine/version.json')).then(response => response.json());
-      return { champions: GymSimulator.champions(save), encounters: EncounterSimulator.catalog(), bundle: version.bundle };
+      return { ...await catalog(), champions: GymSimulator.champions(save), encounters: EncounterSimulator.catalog() };
     },
     async roaming(save, chapter, now) { return EncounterSimulator.roaming(save, chapter, now); },
     async prepare(save, target, options = {}) {
@@ -60,6 +66,7 @@
           }
           let value;
           switch (message.method) {
+            case 'speciesCatalog': value = await catalog(); break;
             case 'catalog': value = await battles.catalog(message.save); break;
             case 'roaming': value = await battles.roaming(message.save, message.chapter, message.now); break;
             case 'interval': value = await battles.interval(message.wins, message.runs); break;

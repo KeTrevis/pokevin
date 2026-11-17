@@ -21,6 +21,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run test:dev
+      - run: npm run test:scripts
       - run: npm run build:extension
       - name: Set release version
         run: |

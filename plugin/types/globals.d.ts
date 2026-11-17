@@ -12,7 +12,7 @@ declare var EncounterSimulator: {
 };
 declare var PokevinAdventureSDK: { simulate(save: import('./domain').Save, target: import('./domain').AdventureTarget, now?: number): Generator<import('./domain').Progress, import('./adventures').AdventureResult, unknown> };
 declare var PokevinChapterXP: (simulate: import('./adventures').Simulate, save: import('./domain').Save, target: import('./domain').AdventureTarget, now?: number) => AsyncGenerator<import('./domain').Progress, import('./domain').XPResult, unknown>;
-declare var PokevinCreateSDK: (cleanups: Set<() => void>, active?: () => boolean) => {battles: import('./battles').Battles; simulate: import('./adventures').Simulate};
+declare var PokevinCreateSDK: (cleanups: Set<() => void>, active?: () => boolean) => {catalog(): Promise<import('./battles').GameCatalog>; battles: import('./battles').Battles; simulate: import('./adventures').Simulate};
 declare var TeamOptimizer: {
   search(save: import('./domain').Save, championId: string, now?: number): Generator<import('./domain').OptimizationProgress, import('./domain').OptimizationResult, unknown>;
 };
@@ -25,7 +25,7 @@ declare var PokevinBackground: () => void;
 
 declare var PokevinBattleSDK: { battles: import('./battles').Battles; connect(port: chrome.runtime.Port): void };
 declare var PokevinVictoryChance: import('./battles').VictoryScript;
-declare var PokevinExampleScript: { id: string; name: string; code: string; previousCodes: string[]; legacyCode: string };
+declare var PokevinExampleScript: { id: string; name: string; code: string; autoStart?: boolean };
 declare var PokevinCreateUI: (cleanups: Set<() => void>, active: () => boolean) => import('./script-ui').ScriptUI;
 
 declare module '*?raw' { const source: string; export default source; }
@@ -33,4 +33,4 @@ declare module '*?raw' { const source: string; export default source; }
 declare var pokevin: import('./script-ui').ScriptAPI;
 
 declare var PokevinXPExampleScript: typeof PokevinExampleScript & {autoStart: boolean};
-declare var PokevinBuiltinScripts: Array<typeof PokevinExampleScript & {autoStart?: boolean}>;
+declare var PokevinDefaultScripts: Array<typeof PokevinExampleScript & {autoStart?: boolean}>;

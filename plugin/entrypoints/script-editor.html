@@ -5,16 +5,7 @@
 <body>
 <aside aria-label="Scripts enregistrés">
   <div class="library-heading"><h1>Scripts</h1><button id="new-script" disabled>+ Nouveau script</button></div>
-  <nav id="script-list" aria-label="Liste des scripts">
-    <section class="script-group" aria-labelledby="builtin-heading">
-      <h2 id="builtin-heading">Built-in <button class="script-group-info" type="button" aria-label="À propos des scripts built-in" aria-describedby="builtin-tooltip">ⓘ</button><span id="builtin-tooltip" class="script-group-tooltip" role="tooltip">Scripts embarqués : consultables, mais non modifiables et non supprimables.</span></h2>
-      <div id="builtin-scripts" class="script-group-list"></div>
-    </section>
-    <section class="script-group" aria-labelledby="custom-heading">
-      <h2 id="custom-heading">Custom <button class="script-group-info" type="button" aria-label="À propos des scripts custom" aria-describedby="custom-tooltip">ⓘ</button><span id="custom-tooltip" class="script-group-tooltip" role="tooltip">Scripts personnels : modifiables et supprimables.</span></h2>
-      <div id="custom-scripts" class="script-group-list"></div>
-    </section>
-  </nav>
+  <nav id="script-list" aria-label="Liste des scripts"></nav>
 </aside>
 <main id="workspace">
   <header><div class="script-heading"><label class="sr-only" for="script-name">Nom du script</label><input id="script-name" maxlength="80" placeholder="Nom du script" autocomplete="off" disabled></div><div class="actions"><button id="restart" class="icon-button" aria-label="Relancer" title="Relancer pour appliquer les modifications" hidden></button><button id="vim" class="icon-button" aria-label="Mode Vim" aria-pressed="false" title="Mode Vim"></button><button id="run" class="icon-button" aria-label="Exécuter" title="Exécuter" disabled></button></div></header>

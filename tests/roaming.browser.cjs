@@ -54,6 +54,23 @@ async function main() {
       return state;
     };
     const current = await checkTimeline();
+    await page.locator('#pokevin-scripts').click();
+    const editor = page.frameLocator('#screen-pokevin-scripts iframe');
+    await editor.getByRole('button', {name: 'Pokémon errant dans la timeline', exact: true}).click();
+    await editor.locator('#run[data-icon="stop"]').click();
+    await page.waitForFunction(() => !document.querySelector('#timeline .pc-timeline-roamer'));
+    await page.reload();
+    await page.locator('.ti-go').click();
+    await page.locator('.title-fx').waitFor({state:'detached'});
+    await page.locator('#pokevin-scripts').click();
+    await editor.getByRole('button', {name: 'Pokémon errant dans la timeline', exact: true}).click();
+    await editor.locator('#run[data-icon="play"]').waitFor();
+    assert.equal(await page.locator('#timeline .pc-timeline-roamer').count(), 0, 'Stopped state survives reload');
+    await editor.locator('#run').click();
+    await checkTimeline();
+    await page.locator('#tabs [data-screen="map"]').click();
+    await page.locator('#map-root [data-ch="14"]').click();
+
     const compact = wire.pack(wire.unpack(current));
     assert.equal(compact.fmt, 2);
     await page.evaluate(state => localStorage.setItem('gachamon-save-v1', JSON.stringify(state)), compact);
@@ -104,7 +121,7 @@ async function main() {
     current.roam.at[243] = { ch: 20, until: Date.now() + 600000 };
     await open(current);
     await checkTimeline();
-    await page.evaluate(() => document.querySelector('script[src*="app.c0081498f2.js"]').remove());
+    await page.evaluate(bundle => document.querySelector(`script[src*="${bundle}"]`).remove(), require('../engine/version.json').bundle);
     await page.waitForFunction(() => document.querySelector('#timeline .pc-timeline-roamer')?.getAttribute('title')?.includes('Version du jeu différente'));
     assert.equal(await page.locator('#timeline .pc-timeline-roamer').count(), 1, 'Version differences must not hide the encounter');
     current.roam.caught.push(243);

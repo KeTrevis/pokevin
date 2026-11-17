@@ -36,6 +36,7 @@ javascriptDefaults.addExtraLib(`
 interface ChapterDetail { /** Index numérique du chapitre. */ chapterId: number; }
 interface BattleDetail extends ChapterDetail { /** Index du nœud terminé. */ node?: number; /** Espèce du Pokémon errant, si présent. */ roamer?: number; }
 interface Pokevin {
+  catalog: import("./types/script-ui").ScriptAPI["catalog"];
   ui: import("./types/script-ui").ScriptUI["ui"];
   chapters: import("./types/script-ui").ScriptUI["chapters"];
   /** Lire une copie décodée de la sauvegarde courante, sans la modifier. */
@@ -106,7 +107,7 @@ const editor = monaco.editor.create(/** @type {HTMLElement} */ (document.getElem
 function element(id) { const el = document.getElementById(id); if (!el) throw new Error('Élément absent : ' + id); return el; }
 const origin = new URL(location.href).searchParams.get('origin');
 if (!origin || !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$|^https:\/\/pokecatch-online\.netlify\.app$/.test(origin)) throw new Error('Origine du jeu invalide.');
-/** @typedef {{id: string, name: string, code: string, bundled?: boolean}} Script */
+/** @typedef {{id: string, name: string, code: string}} Script */
 /** @type {Script[]} */
 let scripts = [];
 let selectedId = '';
@@ -163,8 +164,7 @@ function updateVim() {
   disposeVim();
   vimButton.setAttribute('aria-pressed', String(vimEnabled));
   const status = element('vim-status');
-  vimButton.hidden = !!selected()?.bundled;
-  status.hidden = !vimEnabled || !editor.getModel() || !!selected()?.bundled;
+  status.hidden = !vimEnabled || !editor.getModel();
   if (!status.hidden) vimMode = initVimMode(editor, status);
 }
 vimButton.onclick = () => {
@@ -215,10 +215,8 @@ async function requestSelect(id) {
   }
 }
 function renderList() {
-  const builtInList = element('builtin-scripts');
-  const customList = element('custom-scripts');
-  builtInList.replaceChildren();
-  customList.replaceChildren();
+  const list = element('script-list');
+  list.replaceChildren();
   for (const script of scripts) {
     const row = document.createElement('div'); row.className = 'script-row';
     const button = document.createElement('button');
@@ -245,11 +243,9 @@ function renderList() {
       };
       deleteDialog.showModal();
     };
-    actions.append(toggle);
-    if (!script.bundled) actions.append(remove);
+    actions.append(toggle, remove);
     row.append(button, actions);
-    if (script.bundled) builtInList.append(row);
-    else customList.append(row);
+    list.append(row);
   }
   const active = runningIds.includes(selectedId);
   setIcon(runButton, active ? 'stop' : 'play', active ? 'Arrêter' : 'Exécuter');
@@ -273,8 +269,6 @@ function selectScript(id) {
     nameInput.value = script.name;
   } else { editor.setModel(null); nameInput.value = ''; }
   loading = false;
-  editor.updateOptions({readOnly: !!script?.bundled});
-  nameInput.readOnly = !!script?.bundled;
   nameInput.disabled = runButton.disabled = !script;
   element('empty').hidden = !!script;
   renderList();
@@ -283,7 +277,7 @@ function selectScript(id) {
 }
 function save() {
   const script = selected();
-  if (!script || script.bundled || loading) return;
+  if (!script || loading) return;
   script.code = editor.getValue();
   script.name = nameInput.value;
   send('save', script);

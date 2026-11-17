@@ -1,6 +1,7 @@
 import { Save, Champion, Encounter, TeamMon, FightResult, GymResult, Progress } from './domain';
 
 export interface BattleOptions { now?: number; teamIds?: string[] }
+export interface GameCatalog { species: import('./domain').DexSpecies[]; bundle: string }
 export interface Battle {
   champion: Champion;
   team: TeamMon[];
@@ -11,7 +12,7 @@ export interface Battle {
   close(): void;
 }
 export interface Battles {
-  catalog(save: Save): Promise<{ champions: Champion[]; encounters: Encounter[]; bundle: string }>;
+  catalog(save: Save): Promise<{ champions: Champion[]; encounters: Encounter[]; species: import('./domain').DexSpecies[]; bundle: string }>;
   roaming(save: Save, chapter: number, now?: number): Promise<Encounter | null>;
   /** Numeric chapter: roaming first, then gym. String: exact gym or encounter ID, including league:<region> for the full circuit. */
   prepare(save: Save, target: number | string, options?: BattleOptions): Promise<Battle>;

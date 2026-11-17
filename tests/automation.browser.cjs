@@ -37,7 +37,7 @@ async function main() {
     },wire.pack(save));
     await page.evaluate(code => {
       localStorage.setItem('pokevin-script', code);
-      localStorage.setItem('pokevin-scripts', JSON.stringify({scripts:[{id:'legacy-script',name:'Mon script',code}],selectedId:'legacy-script',examplesVersion:1}));
+      localStorage.removeItem('pokevin-scripts');
     }, LEGACY_SCRIPT);
     await page.goto(process.env.GAME_URL || 'http://127.0.0.1:8087/');
     await page.waitForFunction(()=>document.querySelector('#timeline .tl-node') || document.querySelector('.ti-go')).catch(async error=>{ console.log(await page.locator('body').innerText()); await page.screenshot({path:'artifacts/debug.png'});throw error; }); 
@@ -64,27 +64,15 @@ async function main() {
     await frame.locator('.monaco-editor').waitFor();
     assert.equal(await page.locator('dialog').count(), 0);
     assert.equal(await page.locator('.screen.active').getAttribute('id'), 'screen-pokevin-scripts');
-    // Existing scripts survive the one-time addition of the readable, runnable example.
     const exampleName = 'Calculateur de victoire';
-    assert.equal(await frame.locator('#builtin-scripts .script-row').count(), 1);
-    assert.equal(await frame.locator('#custom-scripts .script-row').count(), 1);
-    assert.equal(await frame.locator('#builtin-scripts .script-label').innerText(), exampleName);
-    assert.equal(await frame.locator('#custom-scripts .script-label').innerText(), 'Mon script');
-    await frame.locator('#builtin-heading button').hover();
-    await frame.getByRole('tooltip').filter({hasText:'Scripts embarqués'}).waitFor();
-    await page.waitForFunction(() => getComputedStyle(document.querySelector('#screen-pokevin-scripts')).opacity === '1');
-    await page.screenshot({path:path.join(ROOT, 'artifacts/scripts-builtin-tooltip.png')});
-    const tooltipPNG = fs.readFileSync(path.join(ROOT, 'artifacts/scripts-builtin-tooltip.png'));
-    assert.equal(tooltipPNG.readUInt32BE(16),1920); assert.equal(tooltipPNG.readUInt32BE(20),1080);
-    await frame.locator('#custom-heading button').focus();
-    await frame.locator('#editor').hover({position:{x:600,y:400}});
-    await frame.locator('#builtin-tooltip').waitFor({state:'hidden'});
-    await frame.getByRole('tooltip').filter({hasText:'Scripts personnels'}).waitFor();
+    assert.equal(await frame.locator('#script-list .script-row').count(), 5);
+    assert.equal(await frame.locator('.script-group').count(), 0);
+    assert.equal(await frame.locator('.delete-script').count(), 5);
     await frame.getByRole('button', {name: exampleName, exact: true}).click();
     const example = await page.evaluate(() => JSON.parse(localStorage.getItem('pokevin-scripts')).scripts.find(script => script.id === 'example-victory-chance'));
     assert.match(example.code, /battles.prepare/);
     assert.match(example.code, /pokevin.saves.read/);
-    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pokevin-scripts')).scripts.length), 3);
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pokevin-scripts')).scripts.length), 5);
     await frame.getByRole('button', {name:'Arrêter', exact:true}).click();
     await frame.getByRole('button', {name:'Exécuter', exact:true}).click();
     await page.locator('#tabs [data-screen="map"]').click();

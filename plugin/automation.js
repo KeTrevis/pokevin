@@ -8,8 +8,8 @@
   /** @type {Adventure | undefined} */
   let previous;
   let changing = false;
-  /** @typedef {{id: string, name: string, code: string, autoStart?: boolean, bundled?: boolean}} Script */
-  /** @typedef {{scripts: Script[], selectedId: string, examplesVersion?: number, exampleCode?: string, bundledCodes?: Record<string, string>}} Library */
+  /** @typedef {{id: string, name: string, code: string, autoStart?: boolean}} Script */
+  /** @typedef {{scripts: Script[], selectedId: string}} Library */
   /** @type {Library | undefined} */
   let library;
   /** @typedef {{active: boolean, unsubscribes: Set<() => void>, id: string, code: string}} Scope */
@@ -101,8 +101,17 @@
     const scope = running.get(id);
     if (!scope) return;
     scope.active = false;
-    for (const off of scope.unsubscribes) off();
     running.delete(id);
+    cleanupAll(scope.unsubscribes);
+  }
+  /**
+   * @param {Set<() => void>} cleanups
+   */
+  function cleanupAll(cleanups) {
+    for (const cleanup of [...cleanups]) {
+      cleanups.delete(cleanup);
+      try { cleanup(); } catch (error) { report(error); }
+    }
   }
   /** @param {Scope} [scope] */
   function createApi(scope) {
@@ -139,7 +148,7 @@
         } else {
           for (const id of running.keys()) { stopScript(id); setAutoStart(id, false); }
           for (const group of Object.values(listeners)) group.clear();
-          for (const cleanup of consoleCleanups) cleanup();
+          cleanupAll(consoleCleanups);
         }
         showStatus('Callbacks arrêtés.');
       },
@@ -149,7 +158,7 @@
   const consoleCleanups = new Set();
   window.addEventListener('pagehide', () => {
     for (const id of running.keys()) stopScript(id);
-    for (const cleanup of consoleCleanups) cleanup();
+    cleanupAll(consoleCleanups);
   });
   const api = createApi();
   Object.defineProperty(window, 'pokevin', { value: api, configurable: true });
@@ -170,55 +179,27 @@
       const saved = /** @type {Library} */ (JSON.parse(raw));
       if (!saved || !Array.isArray(saved.scripts) || saved.scripts.some(script => !script || typeof script.id !== 'string' || !script.id || typeof script.name !== 'string' || typeof script.code !== 'string') ||
         new Set(saved.scripts.map(script => script.id)).size !== saved.scripts.length) throw new Error('La liste de scripts enregistrée est invalide.');
-      library = { scripts: saved.scripts, examplesVersion: saved.examplesVersion, exampleCode: saved.exampleCode, bundledCodes: saved.bundledCodes,
+      library = { scripts: saved.scripts.map(({id, name, code, autoStart}) => ({id, name, code, autoStart})),
         selectedId: saved.scripts.some(script => script.id === saved.selectedId) ? saved.selectedId : saved.scripts[0]?.id ?? '' };
     } else {
       const legacy = localStorage.getItem('pokevin-script');
-      const scripts = legacy !== null ? [{ id: crypto.randomUUID(), name: 'Mon script', code: legacy }] : [];
+      const scripts = [
+        ...(legacy !== null ? [{ id: crypto.randomUUID(), name: 'Mon script', code: legacy }] : []),
+        ...PokevinDefaultScripts.map(({id, name, code, autoStart}) => ({id, name, code, autoStart})),
+      ];
       library = { scripts, selectedId: scripts[0]?.id ?? '' };
     }
-    if ((library.examplesVersion || 0) < 2) {
-      const example = PokevinExampleScript;
-      const found = library.scripts.some(script => script.id === example.id);
-      const scripts = library.scripts.map(script => {
-        if (script.id !== example.id) return script;
-        if (script.code === example.legacyCode || script.code === example.code)
-          return { ...script, name: example.name, code: example.code, autoStart: true };
-        return { ...script, autoStart: false };
-      });
-      if (!found) scripts.push({ id: example.id, name: example.name, code: example.code, autoStart: true });
-      saveLibrary({ scripts, selectedId: library.selectedId || example.id });
-    }
-    for (const example of PokevinBuiltinScripts) {
-      const previousCode = library.bundledCodes?.[example.id] ??
-        (example.id === PokevinExampleScript.id ? library.exampleCode : undefined);
-      if (previousCode === example.code && library.scripts.some(script =>
-        script.id === example.id && script.bundled && script.code === example.code && script.name === example.name)) continue;
-      const scripts = library.scripts.flatMap(script => {
-        if (script.id !== example.id) return [script];
-        const unmodified = script.code === example.code || script.code === previousCode || example.previousCodes.includes(script.code);
-        const updated = { ...script, name: example.name, code: example.code, bundled: true };
-        return unmodified ? [updated] : [updated, {
-          id: crypto.randomUUID(), name: `${script.name.slice(0, 60)} (copie personnelle)`, code: script.code, autoStart: false,
-        }];
-      });
-      if (!scripts.some(script => script.id === example.id)) scripts.push({
-        id: example.id, name: example.name, code: example.code, bundled: true,
-        autoStart: previousCode === undefined && !!example.autoStart,
-      });
-      saveLibrary({ ...library, scripts, bundledCodes: {...library.bundledCodes, [example.id]: example.code} });
-    }
+    saveLibrary(library);
   }
   /** @param {Library} next */
   function saveLibrary(next) {
     // Commit in memory only after storage succeeds; keep the legacy draft as a backup.
-    next = { ...next, bundledCodes: next.bundledCodes ?? library?.bundledCodes, examplesVersion: 4, exampleCode: PokevinExampleScript.code };
     localStorage.setItem('pokevin-scripts', JSON.stringify(next));
     library = next;
   }
   /** @param {string} id @param {boolean} enabled */
   function setAutoStart(id, enabled) {
-    if (library && PokevinBuiltinScripts.some(script => script.id === id))
+    if (library)
       saveLibrary({ ...library, scripts: library.scripts.map(script => script.id === id ? { ...script, autoStart: enabled } : script) });
   }
   /** @param {Script} script */
@@ -240,7 +221,7 @@
     try {
       if (!library) loadLibrary();
       for (const script of library?.scripts ?? []) {
-        if (script.bundled && script.autoStart && !running.has(script.id)) execute(script);
+        if (script.autoStart && !running.has(script.id)) execute(script);
       }
     } catch (error) { report(error); }
   }
@@ -301,15 +282,6 @@
       }
       const script = library.scripts.find(item => item.id === id);
       if (!script) return;
-      if (script.bundled) {
-        if (action === 'select') saveLibrary({ ...library, selectedId: script.id });
-        if (action === 'run') {
-          setAutoStart(script.id, true);
-          sendEditor('run-result', { requestId, success: execute(script) });
-        }
-        if (action === 'stop') { stopScript(script.id); setAutoStart(script.id, false); showStatus('Callbacks arrêtés.'); }
-        return;
-      }
       if (action === 'delete') {
         const index = library.scripts.indexOf(script);
         const scripts = library.scripts.filter(item => item.id !== id);

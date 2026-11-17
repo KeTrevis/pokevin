@@ -2,12 +2,19 @@
 // These expected errors also fail typecheck if an API accidentally becomes untyped.
 /** @param {import('../plugin/types/domain').Save} save @param {HTMLElement} element */
 function checkContracts(save, element) {
+  pokevin.catalog().then(catalog => console.log(catalog.species[0].name));
+  pokevin.ui.versionWarning('app.js');
+  // @ts-expect-error Version checks use bundle filenames.
+  pokevin.ui.versionWarning(123);
   pokevin.simulate(save, 0).then(result => {
     for (const event of result.events) {
       if (event.type === 'item' && event.item) console.log(event.item, event.n ?? 0);
     }
   });
   const { ui, chapters } = PokevinCreateUI(new Set(), () => true);
+  ui.observe('#timeline', elements => elements.forEach(node => node.getAttribute('id')));
+  // @ts-expect-error Observed DOM elements are typed.
+  ui.observe('#timeline', elements => elements[0].fight());
   // @ts-expect-error Badge text must be a string.
   ui.chapterBadge(0, { text: 123 });
   // @ts-expect-error Chapters use numeric IDs or zone/league targets.

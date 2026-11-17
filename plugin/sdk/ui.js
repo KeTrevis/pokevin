@@ -45,6 +45,16 @@ import { VERSION_WARNING } from '../ui/version-warning.js';
   setInterval(refresh, 2000);
   document.addEventListener('visibilitychange', schedule);
 
+  /**
+   * @param {string} bundle
+   */
+  function versionWarning(bundle) {
+    return [...document.scripts].some(script => {
+      try { return new URL(script.src).pathname.endsWith('/' + bundle); }
+      catch { return false; }
+    }) ? '' : VERSION_WARNING;
+  }
+
   /** @param {Set<() => void>} cleanups @param {() => boolean} active @returns {import('../types/script-ui').ScriptUI} */
   globalThis.PokevinCreateUI = function (cleanups, active) {
     return {
@@ -56,8 +66,10 @@ import { VERSION_WARNING } from '../ui/version-warning.js';
           /** @type {Set<() => void>} */
           const visitCleanups = new Set();
           const leave = () => {
-            for (const cleanup of visitCleanups) cleanup();
-            visitCleanups.clear();
+            for (const cleanup of [...visitCleanups]) {
+              visitCleanups.delete(cleanup);
+              try { cleanup(); } catch (error) { console.error('[Pokevin]', error); }
+            }
           };
           const listener = (/** @type {import('../types/script-ui').ChapterView | null} */ view) => {
             leave();
@@ -78,6 +90,41 @@ import { VERSION_WARNING } from '../ui/version-warning.js';
         },
       },
       ui: {
+        versionWarning,
+        observe(selector, callback, cleanup = () => {}) {
+          if (!active()) throw new Error('Script arrêté.');
+          if (typeof callback !== 'function' || typeof cleanup !== 'function') throw new TypeError('Callback attendu.');
+          document.querySelectorAll(selector);
+          let stopped = false;
+          /**
+           * @type {ReturnType<typeof setTimeout> | undefined}
+           */
+          let pending;
+          function render() {
+            pending = undefined;
+            if (stopped || !active()) return;
+            try { callback([...document.querySelectorAll(selector)]); }
+            catch (error) { console.error('[Pokevin]', error); }
+          }
+          function schedule() {
+            if (!stopped && pending === undefined) pending = setTimeout(render, 0);
+          }
+          const observer = new MutationObserver(records => {
+            if (records.some(record => record.target instanceof Element && record.target.closest(selector) ||
+              [...record.addedNodes, ...record.removedNodes].some(node => node instanceof Element &&
+                (node.matches(selector) || node.querySelector(selector))))) schedule();
+          });
+          observer.observe(document.documentElement, {childList: true, subtree: true, attributes: true});
+          const timer = setInterval(schedule, 1000);
+          function off() {
+            if (stopped) return;
+            stopped = true;
+            observer.disconnect(); clearInterval(timer); clearTimeout(pending);
+            cleanups.delete(off); cleanup();
+          }
+          cleanups.add(off); render();
+          return off;
+        },
         chapterBadge(chapterId, initial) {
           if (!active()) throw new Error('Script arrêté.');
           let props = initial, removed = false;
@@ -90,10 +137,7 @@ import { VERSION_WARNING } from '../ui/version-warning.js';
           tooltip.className = 'bag-tip info-tip-box ftip pc-tooltip'; tooltip.role = 'tooltip';
           tooltip.id = `pokevin-tip-${crypto.randomUUID()}`;
           function tooltipText() {
-            const mismatch = props.gameBundle && ![...document.scripts].some(script => {
-              try { return new URL(script.src).pathname.endsWith('/' + props.gameBundle); } catch { return false; }
-            });
-            return [props.tooltip, mismatch ? VERSION_WARNING : ''].filter(Boolean).join(' ');
+            return [props.tooltip, props.gameBundle && versionWarning(props.gameBundle)].filter(Boolean).join(' ');
           }
           function hide() { tooltip.remove(); }
           function show() {

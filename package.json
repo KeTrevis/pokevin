@@ -7,6 +7,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "dev": "wxt",
     "test:dev": "node --test tests/dev-server.test.cjs",
+    "test:scripts": "node --test tests/automation.test.cjs tests/script-ui.test.cjs tests/battle-sdk.test.cjs tests/adventure-sdk.test.cjs tests/pension.test.cjs tests/roaming-script.test.cjs",
     "dev:firefox": "wxt -b firefox",
     "build:firefox": "wxt build -b firefox",
     "postinstall": "wxt prepare"

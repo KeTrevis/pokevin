@@ -2,7 +2,7 @@
 /**
  * @param {Set<() => void>} cleanups
  * @param {() => boolean} [active]
- * @returns {{battles: import('../types/battles').Battles, simulate: import('../types/adventures').Simulate}}
+ * @returns {{catalog(): Promise<import('../types/battles').GameCatalog>, battles: import('../types/battles').Battles, simulate: import('../types/adventures').Simulate}}
  */
 globalThis.PokevinCreateSDK = function (cleanups, active = () => true) {
   function session() {
@@ -70,5 +70,5 @@ globalThis.PokevinCreateSDK = function (cleanups, active = () => true) {
    * @type {import('../types/adventures').Simulate}
    */
   const simulate = (save, target, options) => once('simulateAdventure', {save, target, options});
-  return { battles: Object.freeze(battles), simulate };
+  return { catalog: () => once('speciesCatalog', {}), battles: Object.freeze(battles), simulate };
 };
