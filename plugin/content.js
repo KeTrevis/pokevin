@@ -3,8 +3,6 @@
   "use strict";
   const {
     versionWarning,
-    mountBadge,
-    updateBadge,
     mountAdvisor,
     updateAdvisor,
     mountPreview,
@@ -13,8 +11,8 @@
     updateLeagueTooltip,
     disposeDetached,
   } = globalThis.PokeCatchUI;
-  /** @type {Set<number> | undefined} */
-  let gymChapters;
+  const gymChapters = new Set(PokeCatchChapterData.chapters.flatMap((chapter, index) =>
+    !chapter.league && chapter.trainers.length ? [index] : []));
   /** @type {number | undefined} */
   let scheduled;
   /** @type {string | undefined} */
@@ -37,14 +35,7 @@
   /** @type {Map<number, string> | undefined} */
   let roamingNames;
   let roamingNamesLoading = false;
-  /** @type {chrome.runtime.Port | undefined} */
-  let xpPort;
-  /** @type {string | undefined} */
-  let xpBundle;
-  /** @type {{ requestId: number, chapter: import('./types/domain').XPTarget } | null} */
-  let xpJob = null;
-  let xpRequest = 0, xpRetryAt = 0;
-
+  const engineBundle = PokeCatchChapterData.bundle;
   /** @param {string | undefined} expected */
   const matchesBundle = (expected) =>
     [...document.scripts].some((script) => {
@@ -57,113 +48,6 @@
   /** @param {string} text @param {boolean} [mismatch] */
   const withVersionWarning = (text, mismatch = versionMismatch) =>
     mismatch ? `${text} ${versionWarning}`.trim() : text;
-
-  function cancelXP() {
-    if (xpJob) {
-      try {
-        xpPort?.postMessage({ type: "cancel" });
-      } catch {}
-    }
-    xpJob = null;
-  }
-
-  /** @param {HTMLElement} badge @param {import("./types/domain").EstimateResult<import("./types/domain").XPResult>} result */
-  function showXP(badge, result) {
-    updateBadge(
-      badge,
-      "error" in result
-        ? {
-            value: "Indisponible",
-            tooltip: withVersionWarning(result.error, !matchesBundle(xpBundle)),
-            tone: "neutral",
-          }
-        : {
-            value: `≈ ${Math.round(result.xpPerHour).toLocaleString("fr-FR")}`,
-            tone: "info",
-            tooltip: withVersionWarning(
-              `${result.league ? "Ligue entière. " : ""}Vitesse effective ×${result.speed}. ${result.completed}/${result.runs} parcours terminés.`,
-              !matchesBundle(xpBundle),
-            ),
-          },
-    );
-    badge.setAttribute("aria-busy", "false");
-  }
-
-  function updateXP() {
-    const panel = document.querySelector("#screen-map.active .pg-info .mp-det");
-    const chips = panel?.querySelector(".mp-in .mp-chips");
-    const chapter = xpTarget();
-    if (!chips || chapter === null) {
-      cancelXP();
-      panel?.querySelector("#pc-chapter-xp")?.closest("pc-ui-root")?.remove();
-      return;
-    }
-    if (!visit) return;
-    let badge = /** @type {HTMLElement | null} */ (chips.querySelector("#pc-chapter-xp"));
-    if (!badge)
-      badge = mountBadge(chips, {
-        id: "pc-chapter-xp",
-        label: "XP/h",
-        value: "Calcul…",
-        tooltip: "Calcul…",
-      });
-    if (visit.xp) { showXP(badge, visit.xp); return; }
-    if (xpJob && xpJob.chapter !== chapter) cancelXP();
-    if (!xpPort) {
-      if (Date.now() < xpRetryAt) return;
-      try {
-        const connection = chrome.runtime.connect({ name: "chapter-xp" });
-        xpPort = connection;
-        connection.onMessage.addListener(/** @param {import("./types/domain").XPReply} message */ (message) => {
-          if (xpPort !== connection) return;
-          if (message.type === "ready") {
-            xpBundle = message.bundle;
-            gymChapters = new Set(message.chapters);
-            schedule();
-            return;
-          }
-          if (!xpJob || (!("requestId" in message) || message.requestId !== xpJob.requestId)) return;
-          if (message.type === "result" || message.type === "error") {
-            const result =
-              message.type === "error" ? { error: message.message || "La simulation a échoué." } : message;
-            if (visit) visit.xp = result;
-            xpJob = null;
-            schedule();
-          }
-        });
-        connection.onDisconnect.addListener(() => {
-          void chrome.runtime.lastError;
-          if (xpPort !== connection) return;
-          xpPort = undefined;
-          if (visit?.xpStarted && !visit.xp) visit.xp = { error: "Le calcul a été interrompu. Rouvre ce chapitre pour réessayer." };
-          xpJob = null;
-          xpRetryAt = Date.now() + 3000;
-          schedule();
-        });
-      } catch {
-        updateBadge(badge, { value: "Recharger", tone: "neutral" });
-        xpRetryAt = Date.now() + 3000;
-      }
-      return;
-    }
-    if (!xpBundle) return;
-    try {
-      readSave();
-      visit.save ||= structuredClone(save);
-      if (visit.xpStarted) {
-        badge.setAttribute("aria-busy", "true");
-        return;
-      }
-      visit.xpStarted = true;
-      xpJob = { chapter, requestId: ++xpRequest };
-      badge.setAttribute("aria-busy", "true");
-      xpPort.postMessage({ type: "xp", requestId: xpRequest, chapter, save: visit.save });
-    } catch (error) {
-      cancelXP();
-      visit.xp = { error: (error instanceof Error ? error.message : String(error)) };
-      showXP(badge, visit.xp);
-    }
-  }
 
   function renderChapterPreview() {
     if (document.hidden) return;
@@ -220,7 +104,7 @@
     const target = /** @type {HTMLButtonElement | null | undefined} */ (panel?.querySelector(".mp-go[data-go]"))?.dataset.go;
     const chips = panel?.querySelector(".mp-in > .mp-chips");
     if (!chips || !/^\d+$/.test(target || "")) return null;
-    if (gymChapters && !gymChapters.has(Number(target)) && !roamingKey()) {
+    if (!gymChapters.has(Number(target)) && !roamingKey()) {
       chips.parentElement
         ?.querySelector("#pc-team-advisor")
         ?.closest("pc-ui-root")
@@ -280,7 +164,7 @@
   }
 
   function refreshVersionWarning() {
-    const compatible = matchesBundle(xpBundle);
+    const compatible = matchesBundle(engineBundle);
     if (versionMismatch !== !compatible) {
       versionMismatch = !compatible;
       renderAdvisor();
@@ -365,8 +249,8 @@
     renderAdvisor(panel);
   }
 
-  /** @returns {import('./types/domain').XPTarget | null} */
-  function xpTarget() {
+  /** @returns {import('./types/domain').AdventureTarget | null} */
+  function viewTarget() {
     const panel = document.querySelector('#screen-map.active .pg-info .mp-det:not(.det-out)');
     const button = /** @type {HTMLButtonElement | null | undefined} */ (panel?.querySelector('.mp-go[data-go], [data-zone]'));
     if (!button || button.disabled || panel?.closest('.det-out') || panel?.querySelector('.ev-hunt[hidden]')) return null;
@@ -384,12 +268,11 @@
   }
 
   function syncVisit() {
-    const chapter = xpTarget();
+    const chapter = viewTarget();
     const roamer = roamingKey();
     if (chapter === (visit?.chapter ?? null) && roamer === visitRoamer) return;
-    cancelXP();
     cancelSearch();
-    visit = chapter === null ? undefined : { chapter, xpStarted: false };
+    visit = chapter === null ? undefined : { chapter };
     visitRoamer = roamer;
     advice = { status: "idle", chapter: typeof chapter === 'number' ? chapter : undefined };
   }
@@ -440,9 +323,8 @@
     if (applying || document.hidden) return;
     renderRoamingTimeline();
     syncVisit();
-    if (xpBundle) refreshVersionWarning();
+    refreshVersionWarning();
     renderChapterPreview();
-    updateXP();
     const panel = advisorPanel();
     if (!panel || !visit) {
       cancelSearch();
@@ -509,12 +391,7 @@
 
   function stop() {
     cancelSearch();
-    cancelXP();
     visit = undefined;
-    const xpConnection = xpPort;
-    xpPort = undefined;
-    xpBundle = undefined;
-    xpConnection?.disconnect();
     observer.disconnect();
     if (polling !== null) clearInterval(polling);
     polling = null;

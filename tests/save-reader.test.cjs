@@ -6,7 +6,7 @@ require('../plugin/save-reader.js');
 require('../engine/core.js');
 require('../plugin/simulator.js');
 require('../plugin/encounter-simulator.js');
-require('../plugin/chapter-xp.js');
+require('../plugin/sdk/adventures.js');
 
 const uid = 'm1234567abcdef';
 const caughtAt = parseInt(uid.slice(0, 8), 36) + 15;
@@ -36,10 +36,11 @@ test('decodes the current compact save, preserving all simulation and collection
   assert.equal(save.mz, undefined);
   assert.equal(JSON.stringify(compactSave()), raw);
   assert.doesNotThrow(() => GymSimulator.prepareTeam(save));
-  const iterator = ChapterXP.estimate(save, 0);
+  const iterator = PokevinAdventureSDK.simulate(save, 0);
   let result;
   do { result = iterator.next(); } while (!result.done);
-  assert.ok(Number.isFinite(result.value.xpPerHour));
+  assert.ok(Number.isFinite(result.value.elapsedMs));
+  assert.ok(result.value.events.some(event => event.type === 'xp'));
 });
 
 test('legacy saves pass through, while malformed data still fails validation', () => {

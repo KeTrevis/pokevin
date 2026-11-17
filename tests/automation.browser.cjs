@@ -84,7 +84,7 @@ async function main() {
     const example = await page.evaluate(() => JSON.parse(localStorage.getItem('pokevin-scripts')).scripts.find(script => script.id === 'example-victory-chance'));
     assert.match(example.code, /battles.prepare/);
     assert.match(example.code, /pokevin.saves.read/);
-    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pokevin-scripts')).scripts.length), 2);
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pokevin-scripts')).scripts.length), 3);
     await frame.getByRole('button', {name:'Arrêter', exact:true}).click();
     await frame.getByRole('button', {name:'Exécuter', exact:true}).click();
     await page.locator('#tabs [data-screen="map"]').click();
@@ -175,7 +175,7 @@ return reopenSdk().then(async battle => {
     await frame.locator('.script-row').filter({hasText:'À supprimer'}).hover();
     await frame.getByRole('button',{name:'Supprimer À supprimer',exact:true}).click();
     await frame.locator('#delete-dialog').getByRole('button', {name:'Supprimer', exact:true}).click();
-    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('pokevin-scripts')).scripts.length===3);
+    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('pokevin-scripts')).scripts.length===4);
     assert.equal(await frame.locator('#script-name').inputValue(),'Mon deuxième script');
     await frame.getByRole('button',{name:'Arrêter',exact:true}).waitFor();
     assert.equal(await frame.locator('.is-running').count(),2);
@@ -197,7 +197,7 @@ return reopenSdk().then(async battle => {
     await frame.getByRole('textbox',{name:'Nom du script'}).waitFor();
     await frame.locator('#new-script:not([disabled])').waitFor();
     assert.equal(await frame.getByRole('textbox',{name:'Nom du script'}).inputValue(),'Mon deuxième script');
-    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pokevin-scripts')).scripts.length),3);
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pokevin-scripts')).scripts.length),4);
     assert.equal(await frame.locator('.is-running').count(),0);
     const version1 = 'globalThis.runningVersion = 1; pokevin.events.onChapterStarted(() => {});';
     const version2 = 'globalThis.runningVersion = 2; pokevin.events.onChapterStarted(() => {});';

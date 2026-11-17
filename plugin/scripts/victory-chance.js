@@ -1,8 +1,10 @@
 // @ts-check
 // Bundled script: the SDK supplies fights; this script owns the sampling policy.
-/** @param {import('../types/battles').Battles} battles
+/**
+ * @param {import('../types/battles').Battles} battles
  * @param {import('../types/domain').Save} save
- * @param {string | number} target */
+ * @param {string | number} target
+ */
 globalThis.PokevinVictoryChance = async function* (battles, save, target) {
   const battle = await battles.prepare(save, target);
   const runs = 100;

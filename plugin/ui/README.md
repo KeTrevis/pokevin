@@ -101,3 +101,12 @@ d’équipe. Les duels secondaires d’un chapitre avec arène sont placés dans
 `mountEncounter(container, props)` / `updateEncounter(element, props)` et retire
 l’ancienne racine lors d’un changement d’écran, même si le jeu conserve cet
 écran masqué dans le DOM.
+
+
+Les deux calculateurs fournis (victoire et XP/h) sont des scripts built-in dans
+`plugin/scripts/`. Ils rendent leurs badges via `ui.chapterBadge` et s’abonnent à
+`chapters.onViewed`. Le scope de visite fournit `battles` et `simulate` ; les
+sessions sont fermées à la sortie de la fiche. `pokevin.simulate` renvoie les
+événements natifs et le temps nominal d’un parcours. Le SDK ne calcule ni taux
+horaire, ni nombre d’essais, ni texte de badge. Les contrats sont dans
+`plugin/types/adventures.d.ts` ; ils sont aussi chargés dans Monaco.

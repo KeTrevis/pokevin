@@ -71,6 +71,21 @@
               value = { champion, team, pendingTeam, now };
               break;
             }
+            case 'simulateAdventure': {
+              if (message.options != null && typeof message.options !== 'object' ||
+                  message.options?.now !== undefined && !Number.isFinite(message.options.now)) throw new Error('Options de simulation invalides.');
+              const iterator = PokevinAdventureSDK.simulate(message.save, message.target, message.options?.now);
+              try {
+                let step;
+                do {
+                  if (disconnected) return;
+                  step = iterator.next();
+                  if (!step.done) await new Promise(resolve => setTimeout(resolve, 0));
+                } while (!step.done);
+                value = step.value;
+              } finally { iterator.return(/** @type {any} */ (undefined)); }
+              break;
+            }
             case 'fight':
               if (!battle) throw new Error('Prépare un combat avant de le simuler.');
               value = await battle.fight(message.seed);

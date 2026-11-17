@@ -46,7 +46,7 @@ async function main() {
     await worker.evaluate(() => {
       globalThis.requests = [];
       chrome.runtime.onConnect.addListener(port => port.onMessage.addListener(message => {
-        if (['xp', 'run'].includes(message.type)) globalThis.requests.push({ type: message.type, chapter: message.chapter });
+        if (['simulateAdventure', 'prepare'].includes(message.method)) globalThis.requests.push({ type: message.method === 'simulateAdventure' ? 'xp' : 'run', chapter: message.target });
       }));
     });
     const requests = () => worker.evaluate(() => globalThis.requests);
@@ -56,7 +56,7 @@ async function main() {
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(`http://127.0.0.1:${server.address().port}`);
     const badge = page.locator('#pc-chapter-xp');
-    const ready = () => page.waitForFunction(() => document.querySelector('#pc-chapter-xp b')?.textContent.startsWith('≈'), null, { timeout: 20000 });
+    const ready = () => page.waitForFunction(() => document.querySelector('#pc-chapter-xp b')?.textContent.includes('≈'), null, { timeout: 20000 });
     await ready();
     const originalSave = await page.evaluate(() => localStorage.getItem('gachamon-save-v1'));
     assert.equal(originalSave, JSON.stringify(save));
@@ -67,7 +67,7 @@ async function main() {
     assert.doesNotMatch(await tooltip.innerText(), /XP de combat totale|Cadence nominale|animations et pauses/);
     await page.waitForFunction(() => document.querySelector('#pc-arena-chance')?.getAttribute('aria-busy') === 'false');
     const initialRequests = await requests();
-    assert.equal(initialRequests.filter(request => request.type === 'xp').length, 1);
+    assert.equal(initialRequests.filter(request => request.type === 'xp').length, 20);
     assert.equal(initialRequests.filter(request => request.type === 'run').length, 1);
     const initialXP = await badge.innerText();
     const initialChance = await page.locator('#pc-arena-chance').innerText();
@@ -75,7 +75,7 @@ async function main() {
       const save = JSON.parse(localStorage.getItem('gachamon-save-v1'));
       save.adv.speed = 4; save.mons[0].xp += 10; save.mons[0].level++;
       save.items = { potion: 3 }; save.trainer = { feats: { test: true } };
-      save.dex[25] = true;
+      save.dex[25] = { caught: 1 };
       localStorage.setItem('gachamon-save-v1', JSON.stringify(save));
       renderChapter(0); // The game may redraw the current panel while farming.
     });
@@ -91,7 +91,7 @@ async function main() {
     await page.evaluate(() => renderChapter(0));
     await ready();
     await page.waitForFunction(() => document.querySelector('#pc-arena-chance')?.getAttribute('aria-busy') === 'false');
-    assert.equal((await requests()).filter(request => request.type === 'xp').length, 2);
+    assert.equal((await requests()).filter(request => request.type === 'xp').length, 40);
     assert.equal((await requests()).filter(request => request.type === 'run').length, 2);
     await badge.focus();
     await page.waitForFunction(() => [...document.querySelectorAll('[role="tooltip"]')].some(el => el.textContent.includes('Vitesse effective ×2.5')));
@@ -139,6 +139,7 @@ async function main() {
     const chance = page.locator('#pc-arena-chance');
     await chance.focus();
     await page.waitForFunction(() => [...document.querySelectorAll('[role="tooltip"]')].some(el => el.textContent.includes('Version du jeu différente')));
+    await page.waitForFunction(()=>document.querySelector('#pc-arena-chance')?.getAttribute('aria-busy') === 'false');
     assert.match(await chance.innerText(), /%/);
     await chance.press('Escape');
     const search = page.getByRole('button', { name: /Proposer une équipe/ });
@@ -204,7 +205,7 @@ async function main() {
       assert.equal((await requests()).at(-1).chapter, `league:${region.key}`);
       await badge.focus();
       await page.getByRole('tooltip').filter({ hasText: 'Ligue entière.' }).waitFor();
-      assert.equal(await page.locator('#pc-arena-chance').count(), 0);
+      assert.equal(await page.locator('#pc-arena-chance').count(), 1, 'The victory built-in also supports leagues');
       if (region.key === 'kanto') {
         await page.screenshot({ path: path.join(ROOT, 'artifacts/league-xp.png') });
         const count = (await requests()).length;

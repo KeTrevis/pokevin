@@ -119,7 +119,7 @@ async function main() {
   await page.locator('#tabs [data-screen="map"]').click();
   await page.locator('#map-root [data-ch="0"]').click();
   await page.waitForFunction(() => /%/.test(document.querySelector('#pc-arena-chance')?.textContent), null, { timeout: 30000 });
-  await page.waitForFunction(() => document.querySelector('#pc-chapter-xp b')?.textContent.startsWith('≈'), null, { timeout: 30000 });
+  await page.waitForFunction(() => document.querySelector('#pc-chapter-xp b')?.textContent.includes('≈'), null, { timeout: 30000 });
   fs.mkdirSync(path.join(ROOT, 'artifacts'), { recursive: true });
   await page.screenshot({ path: path.join(ROOT, 'artifacts/wxt-dev-chrome.png') });
   console.log('WXT: automatic installation, real game, Monaco, script execution, reload, retained scripts and simulations passed.');

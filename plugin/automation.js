@@ -9,7 +9,7 @@
   let previous;
   let changing = false;
   /** @typedef {{id: string, name: string, code: string, autoStart?: boolean, bundled?: boolean}} Script */
-  /** @typedef {{scripts: Script[], selectedId: string, examplesVersion?: number, exampleCode?: string}} Library */
+  /** @typedef {{scripts: Script[], selectedId: string, examplesVersion?: number, exampleCode?: string, bundledCodes?: Record<string, string>}} Library */
   /** @type {Library | undefined} */
   let library;
   /** @typedef {{active: boolean, unsubscribes: Set<() => void>, id: string, code: string}} Scope */
@@ -119,7 +119,7 @@
     const cleanups = scope?.unsubscribes || consoleCleanups;
     return Object.freeze({
       ...PokevinCreateUI(cleanups, () => !scope || scope.active),
-      battles: PokevinCreateBattles(cleanups, () => !scope || scope.active),
+      ...PokevinCreateSDK(cleanups, () => !scope || scope.active),
       saves: Object.freeze({ read() {
         const raw = localStorage.getItem('gachamon-save-v1');
         if (!raw || raw.length > 16 * 1024 * 1024) throw new Error('Sauvegarde absente ou trop volumineuse.');
@@ -170,7 +170,7 @@
       const saved = /** @type {Library} */ (JSON.parse(raw));
       if (!saved || !Array.isArray(saved.scripts) || saved.scripts.some(script => !script || typeof script.id !== 'string' || !script.id || typeof script.name !== 'string' || typeof script.code !== 'string') ||
         new Set(saved.scripts.map(script => script.id)).size !== saved.scripts.length) throw new Error('La liste de scripts enregistrée est invalide.');
-      library = { scripts: saved.scripts, examplesVersion: saved.examplesVersion, exampleCode: saved.exampleCode,
+      library = { scripts: saved.scripts, examplesVersion: saved.examplesVersion, exampleCode: saved.exampleCode, bundledCodes: saved.bundledCodes,
         selectedId: saved.scripts.some(script => script.id === saved.selectedId) ? saved.selectedId : saved.scripts[0]?.id ?? '' };
     } else {
       const legacy = localStorage.getItem('pokevin-script');
@@ -189,31 +189,36 @@
       if (!found) scripts.push({ id: example.id, name: example.name, code: example.code, autoStart: true });
       saveLibrary({ scripts, selectedId: library.selectedId || example.id });
     }
-    const example = PokevinExampleScript;
-    if (library.examplesVersion !== 4 || library.exampleCode !== example.code ||
-      !library.scripts.some(script => script.id === example.id && script.bundled && script.code === example.code && script.name === example.name)) {
-      saveLibrary({ ...library, scripts: library.scripts.flatMap(script => {
-        if (script.id !== example.id) return [{ ...script, bundled: false }];
-        const unmodified = script.code === example.code || script.code === library?.exampleCode || example.previousCodes.includes(script.code);
+    for (const example of PokevinBuiltinScripts) {
+      const previousCode = library.bundledCodes?.[example.id] ??
+        (example.id === PokevinExampleScript.id ? library.exampleCode : undefined);
+      if (previousCode === example.code && library.scripts.some(script =>
+        script.id === example.id && script.bundled && script.code === example.code && script.name === example.name)) continue;
+      const scripts = library.scripts.flatMap(script => {
+        if (script.id !== example.id) return [script];
+        const unmodified = script.code === example.code || script.code === previousCode || example.previousCodes.includes(script.code);
         const updated = { ...script, name: example.name, code: example.code, bundled: true };
         return unmodified ? [updated] : [updated, {
           id: crypto.randomUUID(), name: `${script.name.slice(0, 60)} (copie personnelle)`, code: script.code, autoStart: false,
         }];
-      }).concat(library.scripts.some(script => script.id === example.id) ? [] : [{
-        id: example.id, name: example.name, code: example.code, bundled: true, autoStart: false,
-      }]) });
+      });
+      if (!scripts.some(script => script.id === example.id)) scripts.push({
+        id: example.id, name: example.name, code: example.code, bundled: true,
+        autoStart: previousCode === undefined && !!example.autoStart,
+      });
+      saveLibrary({ ...library, scripts, bundledCodes: {...library.bundledCodes, [example.id]: example.code} });
     }
   }
   /** @param {Library} next */
   function saveLibrary(next) {
     // Commit in memory only after storage succeeds; keep the legacy draft as a backup.
-    next = { ...next, examplesVersion: 4, exampleCode: PokevinExampleScript.code };
+    next = { ...next, bundledCodes: next.bundledCodes ?? library?.bundledCodes, examplesVersion: 4, exampleCode: PokevinExampleScript.code };
     localStorage.setItem('pokevin-scripts', JSON.stringify(next));
     library = next;
   }
   /** @param {string} id @param {boolean} enabled */
   function setAutoStart(id, enabled) {
-    if (library && id === PokevinExampleScript.id)
+    if (library && PokevinBuiltinScripts.some(script => script.id === id))
       saveLibrary({ ...library, scripts: library.scripts.map(script => script.id === id ? { ...script, autoStart: enabled } : script) });
   }
   /** @param {Script} script */
@@ -234,8 +239,9 @@
   function startAutomaticScripts() {
     try {
       if (!library) loadLibrary();
-      const script = library?.scripts.find(script => script.id === PokevinExampleScript.id);
-      if (script?.autoStart && !running.has(script.id)) execute(script);
+      for (const script of library?.scripts ?? []) {
+        if (script.bundled && script.autoStart && !running.has(script.id)) execute(script);
+      }
     } catch (error) { report(error); }
   }
 
@@ -295,7 +301,7 @@
       }
       const script = library.scripts.find(item => item.id === id);
       if (!script) return;
-      if (script.id === PokevinExampleScript.id) {
+      if (script.bundled) {
         if (action === 'select') saveLibrary({ ...library, selectedId: script.id });
         if (action === 'run') {
           setAutoStart(script.id, true);

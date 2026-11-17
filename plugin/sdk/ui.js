@@ -13,9 +13,9 @@ import { VERSION_WARNING } from '../ui/version-warning.js';
   function selected() {
     const panel = document.querySelector('#screen-map.active .pg-info .mp-det:not(.det-out)');
     const button = /** @type {HTMLButtonElement | null | undefined} */ (panel?.querySelector('.mp-go[data-go], [data-zone]'));
-    const container = panel?.querySelector('.mp-in > .mp-chips');
+    const container = panel?.querySelector('.mp-in .mp-chips');
     if (!button || button.disabled || !container || panel?.querySelector('.ev-hunt[hidden]')) return null;
-    /** @type {import('../types/domain').XPTarget} */
+    /** @type {import('../types/domain').AdventureTarget} */
     let chapterId;
     if (button.dataset.zone) chapterId = `zone:${Number(button.dataset.zone)}`;
     else if (button.dataset.go === 'L') chapterId = `league:${/** @type {HTMLElement | null} */ (document.querySelector('#map-root .rg.active[data-rg]'))?.dataset.rg || 'kanto'}`;
@@ -67,7 +67,7 @@ import { VERSION_WARNING } from '../ui/version-warning.js';
             const visitActive = () => active() && open;
             return callback(view, {
               ui: PokevinCreateUI(visitCleanups, visitActive).ui,
-              battles: PokevinCreateBattles(visitCleanups, visitActive),
+              ...PokevinCreateSDK(visitCleanups, visitActive),
             });
           };
           listeners.add(listener);

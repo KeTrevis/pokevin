@@ -25,7 +25,6 @@
     "plugin/save-reader.js",
     "plugin/background.js",
     "plugin/simulator.js",
-    "plugin/chapter-xp.js",
     "plugin/optimizer.js",
     "plugin/apply-team.js",
     "plugin/pc-multiselect.js",

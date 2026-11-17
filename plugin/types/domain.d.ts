@@ -99,14 +99,12 @@ export interface PreparedTeam { state: Save; team: TeamMon[]; now: number; autoS
 export interface PreparedFight extends PreparedTeam { champion: Champion; encounterId?: string }
 export interface FightResult { won: boolean; progress: number; actions: number; survivors: number }
 export interface Progress { done: number; runs: number }
-export type XPTarget = number | `league:${string}` | `zone:${number}`;
-export type WorkerRequest = { type: 'run' | 'optimize'; requestId: number; chapter: number; save: Save } |
-  { type: 'xp'; requestId: number; chapter: XPTarget; save: Save };
+export type AdventureTarget = number | `league:${string}` | `zone:${number}`;
+export type WorkerRequest = { type: 'run' | 'optimize'; requestId: number; chapter: number; save: Save };
 export interface EncounterRequest { type: 'encounter' | 'encounter-optimize'; requestId: number; encounterId: string; save: Save }
 export type ControlRequest = WorkerRequest | EncounterRequest | { type: 'ping' | 'cancel' };
 export type ReadyReply = { type: 'ready'; bundle: string; chapters: number[]; encounters: Encounter[] };
 export type ErrorReply = { type: 'error'; requestId: number; message?: string } | { type: 'unavailable'; requestId: number; message?: string };
-export type XPReply = ReadyReply | ErrorReply | ({ type: 'result'; requestId: number } & XPResult) | ({ type: 'progress'; requestId: number } & Progress);
 export type GymReply = ReadyReply | ErrorReply | { type: 'pong' } | ({ type: 'result'; requestId: number } & GymResult) | ({ type: 'progress'; requestId: number } & Progress);
 export type OptimizationReply = ReadyReply | ErrorReply | ({ type: 'optimization-result'; requestId: number } & OptimizationResult) | ({ type: 'optimization-progress'; requestId: number } & OptimizationProgress);
 export interface XPResult {
@@ -130,8 +128,7 @@ export interface Advice {
 }
 export type EstimateResult<T> = T | { error: string };
 export interface ChapterVisit {
-  chapter: XPTarget; save?: Save; xpStarted: boolean;
-  xp?: EstimateResult<XPResult>;
+  chapter: AdventureTarget;
 }
 
 // Public surface used from the generated game engine; its implementation stays untouched.

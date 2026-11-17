@@ -11,7 +11,7 @@
     if (typeof sessionId !== 'string' || sessionId.length > 100) return;
     let port = sessions.get(sessionId);
     if (method === 'close') { sessions.delete(sessionId); port?.disconnect(); return; }
-    if (!Number.isSafeInteger(requestId) || !['catalog', 'roaming', 'interval', 'prepare', 'fight'].includes(method)) return;
+    if (!Number.isSafeInteger(requestId) || !['catalog', 'roaming', 'interval', 'prepare', 'fight', 'simulateAdventure'].includes(method)) return;
     try {
       if (!port) {
         if (sessions.size >= 64) throw new Error('Trop de simulations ouvertes. Ferme les combats inutilisés.');

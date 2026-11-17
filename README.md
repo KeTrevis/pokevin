@@ -389,6 +389,24 @@ d’affichage sur mobile, ainsi que l’avertissement de version. Les captures d
 
 ## XP/h des chapitres
 
+Le badge est fourni par le script built-in **Calculateur d’XP**, visible dans
+**Scripts** et activé automatiquement à sa première installation. Comme le
+calculateur de victoire, il peut être arrêté et relancé indépendamment ; cet état
+est conservé après rechargement. Son code est en lecture seule, avec une copie
+personnelle possible pour adapter le calcul.
+
+Le SDK expose `await pokevin.simulate(save, target, { now })` : un seul
+parcours isolé avec les événements natifs `events`, l’équipe évaluée `teamIds`,
+la durée nominale `elapsedMs`, le nombre d’actions et l’issue `outcome`.
+La cible accepte un chapitre accessible de la région courante, une ligue
+(`league:kanto`) ou une zone (`zone:145`). Chaque appel repart de la copie fournie,
+soigne l’équipe et conserve sa composition ; les cadeaux/échanges sont ignorés
+sans récompense. Un choix manuel d’évolution reste une erreur. La limite est de
+20 000 actions et quitter la fiche ou arrêter le script annule le parcours.
+Ces mêmes événements peuvent servir à mesurer le butin ou les défaites.
+Le choix des 20 essais, l’agrégation d’XP et la formule XP/h appartiennent au
+script, sans fonction dédiée au rendement dans l’API.
+
 La fiche d’un chapitre accessible affiche aussi **XP/h**, y compris sans champion
 d’arène. Le calcul utilise 20 parcours indépendants avec l’équipe actuellement en
 route, soignée au départ de chaque parcours. Les combats sauvages et dresseurs,

@@ -1,3 +1,4 @@
+import adventureTypes from '../types/adventures.d.ts?raw';
 import battleTypes from '../types/battles.d.ts?raw';
 import domainTypes from '../types/domain.d.ts?raw';
 import scriptUITypes from '../types/script-ui.d.ts?raw';
@@ -28,6 +29,7 @@ javascriptDefaults.setCompilerOptions({ allowJs: true, checkJs: true, target: 99
 javascriptDefaults.setDiagnosticsOptions({ noSemanticValidation: false, noSyntaxValidation: false });
 javascriptDefaults.setEagerModelSync(true);
 javascriptDefaults.addExtraLib(domainTypes, 'file:///types/domain.d.ts');
+javascriptDefaults.addExtraLib(adventureTypes, 'file:///types/adventures.d.ts');
 javascriptDefaults.addExtraLib(battleTypes, 'file:///types/battles.d.ts');
 javascriptDefaults.addExtraLib(scriptUITypes, 'file:///types/script-ui.d.ts');
 javascriptDefaults.addExtraLib(`
@@ -40,6 +42,7 @@ interface Pokevin {
   saves: { read(): import("./types/domain").Save };
   /** Catalogue, préparation et combats indépendants ; le script choisit son calcul. */
   battles: import("./types/battles").Battles;
+  simulate: import("./types/adventures").Simulate;
   /** Aller à un chapitre accessible de la région affichée, ou recommencer le chapitre en cours. */
   changeChapter(chapterId: number | string): Promise<void>;
   events: {

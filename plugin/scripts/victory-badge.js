@@ -1,7 +1,9 @@
 // @ts-check
-/** @param {import('../types/script-ui').ChapterView} view
+/**
+ * @param {import('../types/script-ui').ChapterView} view
  * @param {import('../types/battles').Battles} battles
- * @param {import('../types/script-ui').ChapterBadge} badge */
+ * @param {import('../types/script-ui').ChapterBadge} badge
+ */
 async function updateVictoryBadge(view, battles, badge) {
   const save = pokevin.saves.read();
   const [catalog, roamer] = await Promise.all([
@@ -29,17 +31,21 @@ async function updateVictoryBadge(view, battles, badge) {
   });
 }
 
-/** @param {import('../types/domain').XPTarget} chapterId
+/**
+ * @param {import('../types/domain').AdventureTarget} chapterId
  * @param {import('../types/battles').Battles} battles
- * @param {import('../types/domain').Save} save */
+ * @param {import('../types/domain').Save} save
+ */
 async function getRoamer(chapterId, battles, save) {
   if (typeof chapterId !== 'number') return null;
   return battles.roaming(save, chapterId);
 }
 
-/** @param {import('../types/domain').XPTarget} chapterId
+/**
+ * @param {import('../types/domain').AdventureTarget} chapterId
  * @param {Awaited<ReturnType<import('../types/battles').Battles['catalog']>>} catalog
- * @param {import('../types/domain').Encounter | null} roamer */
+ * @param {import('../types/domain').Encounter | null} roamer
+ */
 function isSupported(chapterId, catalog, roamer) {
   if (typeof chapterId === 'number') {
     if (roamer) return true;
@@ -48,22 +54,28 @@ function isSupported(chapterId, catalog, roamer) {
   return catalog.encounters.some(encounter => encounter.id === chapterId);
 }
 
-/** @param {number} probability
- * @returns {'good' | 'poor' | 'result'} */
+/**
+ * @param {number} probability
+ * @returns {'good' | 'poor' | 'result'}
+ */
 function getState(probability) {
   if (probability >= 0.65) return 'good';
   if (probability < 0.4) return 'poor';
   return 'result';
 }
 
-/** @param {ReturnType<typeof getState>} state */
+/**
+ * @param {ReturnType<typeof getState>} state
+ */
 function getColor(state) {
   if (state === 'good') return 'var(--green)';
   if (state === 'poor') return 'var(--danger-text)';
   return 'var(--caution)';
 }
 
-/** @param {unknown} error */
+/**
+ * @param {unknown} error
+ */
 function getErrorMessage(error) {
   if (error instanceof Error) return error.message;
   return String(error);

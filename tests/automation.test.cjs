@@ -2,13 +2,14 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const vm=require('node:vm');
 const fs=require('node:fs');
-function setup(saved, example){
+function setup(saved, example, builtins){
  class Storage {constructor(){this.values=new Map()}setItem(k,v){this.values.set(k,String(v))}getItem(k){return this.values.get(k)??null}}
  const pending=[], errors=[]; let subscriptions=0;
  const context={crypto:{randomUUID:require('node:crypto').randomUUID},PokevinExampleScript:{id:'example-victory-chance',name:'Calculateur',code:'pokevin.chapters.onViewed(() => {});',previousCodes:['old badge example','old scoped example'],legacyCode:'old console example'}, PokevinCreateUI:cleanups=>({ui:{},chapters:{onViewed:()=>{subscriptions++;const off=()=>{subscriptions--;cleanups.delete(off)};cleanups.add(off);return off}}}),addEventListener(){},Storage, localStorage:new Storage(), queueMicrotask:fn=>pending.push(fn), console:{error:(...args)=>errors.push(args)},
  document:{documentElement:{},addEventListener(){},querySelector:()=>null},MutationObserver:class{observe(){}}};
  if(example)context.PokevinExampleScript=example;
  if(saved)context.localStorage.setItem('pokevin-scripts',JSON.stringify(saved));
+ context.PokevinBuiltinScripts=builtins??[context.PokevinExampleScript];
  context.window=context;
  vm.runInNewContext(fs.readFileSync(require.resolve('../plugin/sdk/client.js'),'utf8'),context);
  vm.runInNewContext(fs.readFileSync(require.resolve('../plugin/automation.js'),'utf8'),context);
@@ -173,4 +174,23 @@ test('an edited bundled script is restored with exactly one personal backup',()=
  const reloaded=setup(refreshed.library(),example);
  assert.equal(reloaded.library().scripts.length,2);
  assert.equal(setup({...saved,scripts:[]},example).library().scripts.length,1);
+});
+
+test('adding XP preserves victory preferences, starts XP once and keeps both stopped after reload',()=>{
+ const victory={id:'example-victory-chance',name:'Victoire',code:'pokevin.chapters.onViewed(() => {});',previousCodes:[],legacyCode:''};
+ const xp={id:'example-chapter-xp',name:'XP',code:'pokevin.chapters.onViewed(() => {});',previousCodes:[],legacyCode:'',autoStart:true};
+ const saved={scripts:[{...victory,bundled:true,autoStart:false}],selectedId:victory.id,examplesVersion:4,exampleCode:victory.code};
+ const env=setup(saved,victory,[victory,xp]);
+ assert.equal(env.subscriptions(),1);
+ assert.equal(env.library().scripts.length,2);
+ assert.equal(env.library().selectedId,victory.id);
+ assert.equal(env.library().scripts[0].autoStart,false);
+ assert.equal(env.library().scripts[1].autoStart,true);
+ env.api.stop();
+ const reloaded=setup(env.library(),victory,[victory,xp]);
+ assert.equal(reloaded.subscriptions(),0);
+ assert.equal(reloaded.library().scripts.length,2);
+ const updated=setup(reloaded.library(),victory,[victory,{...xp,code:xp.code+'\n// Updated'}]);
+ assert.equal(updated.subscriptions(),0);
+ assert.equal(updated.library().scripts.length,2);
 });

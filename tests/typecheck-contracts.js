@@ -2,6 +2,11 @@
 // These expected errors also fail typecheck if an API accidentally becomes untyped.
 /** @param {import('../plugin/types/domain').Save} save @param {HTMLElement} element */
 function checkContracts(save, element) {
+  pokevin.simulate(save, 0).then(result => {
+    for (const event of result.events) {
+      if (event.type === 'item' && event.item) console.log(event.item, event.n ?? 0);
+    }
+  });
   const { ui, chapters } = PokevinCreateUI(new Set(), () => true);
   // @ts-expect-error Badge text must be a string.
   ui.chapterBadge(0, { text: 123 });
@@ -23,7 +28,7 @@ function checkContracts(save, element) {
   // @ts-expect-error A team stores Pokémon UIDs, not Pokédex numbers.
   save.team.push(25);
   // @ts-expect-error Chapter IDs must be numbers.
-  ChapterXP.estimate(save, '1');
+  pokevin.simulate(save, '1');
   // @ts-expect-error Gym IDs are chapter:step strings.
   GymSimulator.prepare(save, 1);
   // @ts-expect-error Badge tones are restricted to the design system.
@@ -31,7 +36,7 @@ function checkContracts(save, element) {
   // @ts-expect-error Applying a proposal requires Pokémon data, not just IDs.
   PokeCatchTeams.apply(['uid-1'], 0);
   /** @type {import('../plugin/types/domain').WorkerRequest} */
-  const request = { type: 'xp', requestId: 1, chapter: 0, save };
+  const request = { type: 'run', requestId: 1, chapter: 0, save };
   // @ts-expect-error A simulation request cannot carry a textual chapter ID.
   request.chapter = '0';
 }

@@ -10,9 +10,9 @@ declare var EncounterSimulator: {
   fight(prepared: import('./domain').PreparedFight, trace?: import('./domain').CombatEvent[] | null, seed?: number): import('./domain').FightResult;
   interval(wins: number, runs: number): number[];
 };
-declare var ChapterXP: {
-  estimate(save: import('./domain').Save, chapter: import('./domain').XPTarget, now?: number): Generator<import('./domain').Progress, import('./domain').XPResult, unknown>;
-};
+declare var PokevinAdventureSDK: { simulate(save: import('./domain').Save, target: import('./domain').AdventureTarget, now?: number): Generator<import('./domain').Progress, import('./adventures').AdventureResult, unknown> };
+declare var PokevinChapterXP: (simulate: import('./adventures').Simulate, save: import('./domain').Save, target: import('./domain').AdventureTarget, now?: number) => AsyncGenerator<import('./domain').Progress, import('./domain').XPResult, unknown>;
+declare var PokevinCreateSDK: (cleanups: Set<() => void>, active?: () => boolean) => {battles: import('./battles').Battles; simulate: import('./adventures').Simulate};
 declare var TeamOptimizer: {
   search(save: import('./domain').Save, championId: string, now?: number): Generator<import('./domain').OptimizationProgress, import('./domain').OptimizationResult, unknown>;
 };
@@ -24,7 +24,6 @@ declare function importScripts(...urls: string[]): void;
 declare var PokevinBackground: () => void;
 
 declare var PokevinBattleSDK: { battles: import('./battles').Battles; connect(port: chrome.runtime.Port): void };
-declare var PokevinCreateBattles: (cleanups: Set<() => void>, active?: () => boolean) => import('./battles').Battles;
 declare var PokevinVictoryChance: import('./battles').VictoryScript;
 declare var PokevinExampleScript: { id: string; name: string; code: string; previousCodes: string[]; legacyCode: string };
 declare var PokevinCreateUI: (cleanups: Set<() => void>, active: () => boolean) => import('./script-ui').ScriptUI;
@@ -32,3 +31,6 @@ declare var PokevinCreateUI: (cleanups: Set<() => void>, active: () => boolean) 
 declare module '*?raw' { const source: string; export default source; }
 
 declare var pokevin: import('./script-ui').ScriptAPI;
+
+declare var PokevinXPExampleScript: typeof PokevinExampleScript & {autoStart: boolean};
+declare var PokevinBuiltinScripts: Array<typeof PokevinExampleScript & {autoStart?: boolean}>;

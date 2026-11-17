@@ -3,7 +3,7 @@ import '../../engine/core.js';
 import '../simulator.js';
 import '../encounter-simulator.js';
 import '../optimizer.js';
-import '../chapter-xp.js';
+import '../sdk/adventures.js';
 import '../sdk/battles.js';
 import '../scripts/victory-chance.js';
 import '../background.js';

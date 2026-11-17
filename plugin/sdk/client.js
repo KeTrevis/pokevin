@@ -1,6 +1,10 @@
 // @ts-check
-/** @param {Set<() => void>} cleanups @param {() => boolean} [active] @returns {import('../types/battles').Battles} */
-globalThis.PokevinCreateBattles = function (cleanups, active = () => true) {
+/**
+ * @param {Set<() => void>} cleanups
+ * @param {() => boolean} [active]
+ * @returns {{battles: import('../types/battles').Battles, simulate: import('../types/adventures').Simulate}}
+ */
+globalThis.PokevinCreateSDK = function (cleanups, active = () => true) {
   function session() {
     if (!active()) throw new Error('Script arrêté.');
     const sessionId = crypto.randomUUID();
@@ -62,5 +66,9 @@ globalThis.PokevinCreateBattles = function (cleanups, active = () => true) {
       } catch (error) { connection.close(); throw error; }
     },
   };
-  return Object.freeze(battles);
+  /**
+   * @type {import('../types/adventures').Simulate}
+   */
+  const simulate = (save, target, options) => once('simulateAdventure', {save, target, options});
+  return { battles: Object.freeze(battles), simulate };
 };

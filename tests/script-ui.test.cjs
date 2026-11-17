@@ -25,16 +25,16 @@ function setup() {
       documentElement: {}, scripts: [], addEventListener() {}, createElement: () => new Element(),
       querySelector: () => chapter === null ? null : { querySelector: selector =>
         selector === '.mp-go[data-go], [data-zone]' ? { dataset: { go: String(chapter) } } :
-          selector === '.mp-in > .mp-chips' ? container : null },
+          selector === '.mp-in .mp-chips' ? container : null },
     },
-    PokevinCreateBattles(owned, active) {
-      return { prepare() {
+    PokevinCreateSDK(owned, active) {
+      return {simulate() {}, battles: { prepare() {
         if (!active()) throw new Error('Script arrêté.');
         let open = true;
         const close = () => { open = false; closed++; owned.delete(close); };
         owned.add(close);
         return { fight() { if (!open) throw new Error('Simulation fermée.'); }, close };
-      } };
+      } } };
     },
   };
   const source = fs.readFileSync(require.resolve('../plugin/sdk/ui.js'), 'utf8').replace(/^import .*;$/m, '');

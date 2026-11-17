@@ -9,6 +9,7 @@ export default defineContentScript({
     await import('../sdk/client.js');
     await import('../sdk/ui.js');
     await import('../scripts/victory-chance-example.js');
+    await import('../scripts/xp-example.js');
     return import('../automation.js');
   },
 });
