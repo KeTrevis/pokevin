@@ -1,7 +1,7 @@
 # Pokevin
 
 Extension Chrome / Edge / Firefox, version 0.4.6. Moteur embarqué synchronisé avec
-le build du jeu `abf02a8fb7` (bundle `app.b91ad7796f.js`).
+le build du jeu `70cf21f014` (bundle `app.0d06eadada.js`).
 
 ## Développement local avec WXT
 
@@ -391,7 +391,7 @@ y compris quand le nom du dresseur est encore « ??? ». Cela ne découvre pas l
 dresseur et ne modifie pas la sauvegarde. L’aperçu des champions n’apparaît pas
 sur les chapitres verrouillés ; les équipes de la Ligue restent consultables.
 
-Les données viennent du bundle officiel `app.b91ad7796f.js` consulté le 17 novembre
+Les données viennent du bundle officiel `app.0d06eadada.js` consulté le 17 novembre
 2026. Une différence de version affiche un avertissement dans l’infobulle, sans
 bloquer l’équipe. Pour actualiser ces données depuis le bundle original téléchargé :
 
@@ -517,7 +517,7 @@ visite. Les chapitres sans champion d’arène peuvent afficher les duels des re
 
 ## Rencontres spéciales
 
-Le moteur embarqué vient du bundle officiel `app.b91ad7796f.js` (build `abf02a8fb7`),
+Le moteur embarqué vient du bundle officiel `app.0d06eadada.js` (build `70cf21f014`),
 récupéré le 17 novembre 2026. Une différence de version reste un simple avertissement.
 
 - **Zones légendaires** : dans Progression, ouvrir la fiche du légendaire, par exemple
@@ -556,7 +556,7 @@ Les résultats sont conservés pendant la visite de la fiche. Changer de rencont
 fermer puis rouvrir la fiche, ou appliquer une proposition lance une nouvelle estimation.
 
 ```sh
-GAME_BUNDLE=/chemin/app.b91ad7796f.js node --test tests/simulator.test.cjs tests/optimizer.test.cjs tests/chapter-xp.test.cjs tests/encounters.test.cjs
+GAME_BUNDLE=/chemin/app.0d06eadada.js node --test tests/simulator.test.cjs tests/optimizer.test.cjs tests/chapter-xp.test.cjs tests/encounters.test.cjs
 PLAYWRIGHT_MODULE=/chemin/node_modules/playwright GAME_DIR=/chemin/game node tests/encounters.browser.cjs
 ```
 
@@ -628,7 +628,7 @@ le ZIP existant. Aucun secret à configurer.
 Depuis la racine du dépôt, avec Python 3 et Node 22 ou ultérieur :
 
 ```powershell
-python tools/build_extension_engine.py /chemin/app.b91ad7796f.js --build abf02a8fb7
+python tools/build_extension_engine.py /chemin/app.0d06eadada.js --build 70cf21f014
 node --test tests/simulator.test.cjs tests/optimizer.test.cjs
 node tests/firefox.test.cjs
 ```
