@@ -95,6 +95,7 @@ test('default victory source remains readable and typed',()=>{
  assert.match(example.code,/@param \{import\('\.\.\/types\/battles'\)\.Battles\} battles/);
  assert.doesNotMatch(example.code,/\n}\n(?:\/\*\*|(?:async )?function)/);
  const path=require('node:path');
+ fs.mkdirSync(path.join(__dirname,'../artifacts'),{recursive:true});
  const directory=fs.mkdtempSync(path.join(__dirname,'../artifacts/script-types-'));
  try {
   fs.mkdirSync(path.join(directory,'scripts'));
